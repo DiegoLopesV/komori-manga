@@ -2,7 +2,7 @@
 
 Free, open-source manga composition and interactive reading studio. GPLv3 covers software; creators retain their artwork and media rights. PT-BR and English interface; one language per work. Desktop editor and responsive browser reader.
 
-Import individual panels or flattened pages. Editable templates and free composition; straight and curved vector frame boundaries. Crop and reposition without distorting images. Text, bubbles and lettering; imported PNG/JPEG/WebP/GIF, MP4/WebM, recorded voices, SFX and ambience. No drawing or animation generation.
+Import individual images or editable SVG pages. Finished-page import accepts SVG only; its tooltip explains editable elements. Raster artwork is imported through Image or the frame artwork control. Existing PNG page drafts remain compatible. Editable templates and free composition; straight and curved vector frame boundaries. Crop and reposition without distorting images. Text, bubbles and lettering; imported PNG/JPEG/WebP/GIF, MP4/WebM, recorded voices, SFX and ambience. No drawing or animation generation.
 
 Ordered reading moments show/hide layers and trigger transition/audio. Revealed elements persist. Advance finishes a running visual transition, then advances. Moving forward stops voice/SFX. Back restores prior visual state without replay; replay is explicit. Ambient music continues until replaced/stopped. Looping media never blocks navigation. Static alternatives and reduced motion supported. Audio starts only after reader interaction.
 

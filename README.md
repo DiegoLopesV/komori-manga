@@ -7,7 +7,7 @@ Piloto: https://komori-manga.vercel.app
 ## O que está disponível
 
 - Composição livre e modelos editáveis; quadros poligonais e curvas ajustáveis, com vértices arrastáveis.
-- Importação de quadros ou páginas prontas com recortes por região. PNG, JPEG, WebP, GIF, MP4 e WebM.
+- Importação de páginas prontas em SVG editável. Imagens e arte de quadros: PNG, JPEG, WebP e GIF; animações: MP4 e WebM.
 - Texto, balões, onomatopeias, camadas, recorte, escala, posição e desfazer/refazer.
 - Momentos ordenados de revelação/ocultação, transições, falas gravadas, SFX e música ambiente.
 - Animações importadas em quadros ou páginas inteiras; loop e alternativa estática.
@@ -17,11 +17,11 @@ Piloto: https://komori-manga.vercel.app
 
 ## SVG e criação de conjuntos
 
-“Importar SVG editável” converte formas, polígonos, curvas, textos, imagens incorporadas e grupos em elementos do estúdio. O SVG do gerador Oyasumi é convertido em quadros com vértices editáveis. A importação preserva dimensões do `viewBox`; quando a página atual já contém elementos, cria uma nova página para preservar o trabalho existente. Use “Apagar página” para remover páginas do rascunho, com confirmação e desfazer.
+“Importar página pronta” (apenas SVG, explicado no hover) converte formas, polígonos, curvas, textos, imagens incorporadas e grupos em elementos do estúdio. O SVG do gerador Oyasumi é convertido em quadros com vértices editáveis. A importação preserva dimensões do `viewBox`; quando a página atual já contém elementos, cria uma nova página para preservar o trabalho existente. Use “Apagar página” para remover páginas do rascunho, com confirmação e desfazer.
 
 O importador não executa scripts, HTML embutido ou referências externas. Limite inicial: 2 MB de XML e 2000 objetos. Filtros, máscaras, recortes complexos, pinturas por referência/gradiente e texto rotacionado não têm conversão completa; o editor informa recursos não convertidos. Texto convertido em contornos continua sendo geometria, não texto recuperável. PNGs incorporados continuam imagens, não desenhos decompostos.
 
-Uma página PNG tem agora uma camada selecionável: “Editar imagem da página”. Pode ser movida, redimensionada pela alça ou pelos campos e removida. Os quadros recortam essa imagem. Rascunhos PNG da versão anterior são adaptados ao abrir.
+Páginas PNG já salvas continuam com uma camada selecionável: “Editar imagem da página”. Pode ser movida, redimensionada pela alça ou pelos campos e removida. Os quadros recortam essa imagem. Rascunhos PNG da versão anterior são adaptados ao abrir.
 
 Selecione um quadro e use “Importar arte neste quadro”, “Balão neste quadro”, “Texto neste quadro” ou “Onomatopeia neste quadro”. Elementos vinculados acompanham a posição e o tamanho do quadro, e podem ser desvinculados pelo campo de vínculo. “Revelar em outro momento” separa um elemento na sequência de leitura. A prévia inicia na página atual do editor.
 

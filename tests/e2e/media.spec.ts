@@ -13,9 +13,7 @@ test('imported animation plays, reduced motion uses its static alternative', asy
   await expect(video).toHaveCount(0);
   await expect(page.locator('.reader-page img')).toBeVisible();
 });
-test('finished-page import maps artwork to frames and remains available after reload', async ({
-  page,
-}) => {
+test('PNG image import remains available after reload', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Começar uma obra' }).click();
   const png = Buffer.from(
@@ -23,11 +21,11 @@ test('finished-page import maps artwork to frames and remains available after re
     'base64',
   );
   await page
-    .locator('input[data-import="page"]')
+    .locator('input[data-import="image"]')
     .setInputFiles({ name: 'page.png', mimeType: 'image/png', buffer: png });
-  await expect(page.locator('.editor-paper image')).toHaveCount(5);
+  await expect(page.locator('.editor-paper image')).toHaveCount(1);
   await page.getByRole('button', { name: 'Voltar', exact: true }).click();
   await page.reload();
   await page.locator('.work-card').filter({ hasText: 'Sem título' }).click();
-  await expect(page.locator('.editor-paper image')).toHaveCount(5);
+  await expect(page.locator('.editor-paper image')).toHaveCount(1);
 });

@@ -22,7 +22,7 @@ test('SVG page becomes native frames; artwork and dialogue can be imported direc
   await page.getByRole('button', { name: 'Testar leitura' }).click();
   await expect(page.locator('.reader-page .canvas-text')).toHaveText('Uma fala vinculada.');
 });
-test('background PNG is selectable, resizable and removable; pages can be deleted and undone', async ({
+test('imported PNG image is selectable, resizable and removable; pages can be deleted and undone', async ({
   page,
 }) => {
   await page.goto('/');
@@ -32,7 +32,7 @@ test('background PNG is selectable, resizable and removable; pages can be delete
     'base64',
   );
   await page
-    .locator('input[data-import="page"]')
+    .locator('input[data-import="image"]')
     .setInputFiles({ name: 'page.png', mimeType: 'image/png', buffer: png });
   await expect(page.locator('.editor-paper [data-kind="image"]')).toHaveCount(1);
   await page.getByRole('spinbutton', { name: 'Largura', exact: true }).fill('600');
@@ -118,4 +118,23 @@ test('SVG resize handle stays usable above overlapping frames', async ({ page })
   await page.mouse.move(handle.x + handle.width / 2 + 45, handle.y + handle.height / 2 + 30);
   await page.mouse.up();
   expect((await panel.boundingBox())!.width).toBeGreaterThan(before + 20);
+});
+
+test('finished page has one SVG-only import button with an explanatory tooltip', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Começar uma obra' }).click();
+  const button = page.getByRole('button', { name: 'Importar página pronta', exact: true });
+  await expect(button).toHaveAttribute(
+    'title',
+    'Importe uma página em SVG para editar seus quadros e elementos.',
+  );
+  await expect(
+    page.getByRole('button', { name: 'Importar SVG editável', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator('input[data-import="page"]')).toHaveAttribute(
+    'accept',
+    'image/svg+xml,.svg',
+  );
 });

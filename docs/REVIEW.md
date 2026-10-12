@@ -5,7 +5,7 @@ Faça a revisão no computador para editar e no celular para ler. Use primeiro �
 ## 1. Composição e liberdade artística
 
 - Escolher modelos clássico, diagonal e página inteira; editar os quadros resultantes.
-- Importar uma página pronta e conferir os recortes em cada quadro. Mover os vértices, ajustar curvatura, redimensionar e reposicionar.
+- Importar uma página SVG pelo botão único “Importar página pronta”, conferir o hover e os elementos editáveis. Importar PNG pela opção Imagem ou pela arte do quadro. Mover os vértices, ajustar curvatura, redimensionar e reposicionar.
 - Importar quadros separados; verificar proporção, recorte, escala e posição da imagem.
 - Criar balões, textos e onomatopeias; testar tamanhos, cores, duplicação, ordem das camadas e desfazer/refazer.
 - Selecionar um quadro e pressionar Delete/Backspace; conferir remoção e desfazer. Digitar em um balão não deve acionar remoção do elemento.

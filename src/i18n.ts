@@ -95,7 +95,14 @@ const dictionary = {
   textInPanel: ['Texto neste quadro', 'Text in this panel'],
   sfxInPanel: ['Onomatopeia neste quadro', 'Lettering in this panel'],
   noFill: ['Sem preenchimento', 'No fill'],
-  importSvg: ['Importar SVG editável', 'Import editable SVG'],
+  pageSvgHint: [
+    'Importe uma página em SVG para editar seus quadros e elementos.',
+    'Import an SVG page to edit its panels and elements.',
+  ],
+  pageSvgOnly: [
+    'A página pronta deve ser um arquivo SVG. Para PNG, use Imagem ou Importar arte neste quadro.',
+    'A finished page must be an SVG file. For PNG, use Image or Import artwork into this frame.',
+  ],
   importArt: ['Importar arte neste quadro', 'Import artwork into this panel'],
   importVoice: ['Importar fala', 'Import voice'],
   importSfx: ['Importar efeito sonoro', 'Import sound effect'],

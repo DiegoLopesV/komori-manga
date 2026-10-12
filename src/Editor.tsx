@@ -26,7 +26,6 @@ import {
   snapshot,
   uid,
   safeLink,
-  mapPageArtwork,
   changeElement,
   removeElement,
   deletePage,
@@ -257,13 +256,7 @@ export function Editor({
         );
         return;
       }
-      const asset = await uploadMedia(file, project, ownerId);
-      const copy = snapshot(project),
-        mapped = mapPageArtwork(page, asset.id);
-      copy.assets.push(asset);
-      copy.chapters[chapterIndex].pages[pageIndex] = mapped;
-      commit(copy);
-      setSelected(mapped.backgroundElementId);
+      throw new Error(t('pageSvgOnly'));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -778,19 +771,20 @@ export function Editor({
                 <Plus size={15} /> {t('addPage')}
               </button>
               <button onClick={() => setTemplates(true)}>{t('templates')}</button>
-              <button disabled={busy} onClick={() => pageInput.current?.click()}>
+              <button
+                title={t('pageSvgHint')}
+                disabled={busy}
+                onClick={() => pageInput.current?.click()}
+              >
                 <Upload size={14} />
                 {t('importPage')}
-              </button>
-              <button disabled={busy} onClick={() => pageInput.current?.click()}>
-                {t('importSvg')}
               </button>
               <input
                 ref={pageInput}
                 data-import="page"
                 type="file"
                 hidden
-                accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
+                accept="image/svg+xml,.svg"
                 onChange={(e) => void importPage(e.target.files?.[0])}
               />
             </>
