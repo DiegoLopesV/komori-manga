@@ -7,9 +7,13 @@ test('Delete removes a selected frame, cleans moments and can be undone', async 
   await page.locator('.editor-paper svg').click({ position: { x: 60, y: 60 } });
   await page.keyboard.press('Delete');
   await expect(page.locator('.editor-paper g>rect[stroke-dasharray]')).toHaveCount(0);
-  await expect(page.getByRole('checkbox', { name: 'Revelar Quadro', exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole('checkbox', { name: 'Revelar Quadro', exact: true, includeHidden: true }),
+  ).toHaveCount(0);
   await page.getByRole('button', { name: 'Desfazer', exact: true }).click();
-  await expect(page.getByRole('checkbox', { name: 'Revelar Quadro', exact: true })).toHaveCount(1);
+  await expect(
+    page.getByRole('checkbox', { name: 'Revelar Quadro', exact: true, includeHidden: true }),
+  ).toHaveCount(1);
 });
 test('Backspace inside text does not remove the selected element', async ({ page }) => {
   await page.goto('/');

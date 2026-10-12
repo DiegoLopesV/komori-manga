@@ -755,10 +755,12 @@ export function Editor({
                   {t('pageArtwork')}
                 </button>
               )}
-              <button onClick={() => setPageDeletion(true)}>
-                <Trash2 size={14} />
-                {t('deletePage')}
-              </button>
+              <details className="sidebar-menu">
+                <summary>{t('pageActions')}</summary>
+                <button className="danger-button" onClick={() => setPageDeletion(true)}>
+                  <Trash2 size={14} /> {t('deletePage')}
+                </button>
+              </details>
               <button
                 className="dashed-button"
                 onClick={() => {
@@ -880,12 +882,16 @@ export function Editor({
         <main className="workspace">
           <div className="canvas-toolbar">
             <div>
-              {(['panel', 'bubble', 'text', 'sfx', 'image', 'video'] as const).map((kind) => (
-                <button key={kind} onClick={() => add(kind)}>
-                  <Plus size={13} />
-                  {t(kind)}
-                </button>
-              ))}
+              {(['panel', 'bubble', 'text', 'sfx', 'image', 'video'] as const)
+                .filter(
+                  (kind) => element?.kind !== 'panel' || !['bubble', 'text', 'sfx'].includes(kind),
+                )
+                .map((kind) => (
+                  <button key={kind} onClick={() => add(kind)}>
+                    <Plus size={13} />
+                    {t(kind)}
+                  </button>
+                ))}
               <button onClick={() => setGallery({ kind: 'panel', replace: false })}>
                 {t('modelLibrary')}
               </button>
@@ -998,18 +1004,21 @@ export function Editor({
                   <button onClick={() => setGallery({ kind: element.kind, replace: true })}>
                     {t('chooseShape')}
                   </button>
-                  <button
-                    onClick={() => {
-                      setTemplateName(element.name);
-                      setSavingTemplate(true);
-                    }}
-                  >
-                    {t('saveModel')}
-                  </button>
-                  <button onClick={() => elementSvgInput.current?.click()}>
-                    <Upload size={13} />
-                    {t('importElement')}
-                  </button>
+                  <details className="sidebar-menu">
+                    <summary>{t('modelActions')}</summary>
+                    <button
+                      onClick={() => {
+                        setTemplateName(element.name);
+                        setSavingTemplate(true);
+                      }}
+                    >
+                      {t('saveModel')}
+                    </button>
+                    <button onClick={() => elementSvgInput.current?.click()}>
+                      <Upload size={13} />
+                      {t('importElement')}
+                    </button>
+                  </details>
                 </div>
               )}
               {element.kind === 'panel' && (
@@ -1042,44 +1051,6 @@ export function Editor({
                 <button className="separate-reveal" onClick={separateReveal}>
                   {t('separateReveal')}
                 </button>
-              )}
-              {!element.editorOnly && (
-                <section className="context-card">
-                  <div className="section-label">{t('panelAudio')}</div>
-                  <strong>
-                    {element.name} · {String(momentIndex + 1).padStart(2, '0')}
-                  </strong>
-                  <p>{t('audioHint')}</p>
-                  <div className="audio-import-actions">
-                    <button onClick={() => voiceInput.current?.click()}>
-                      <Upload size={13} />
-                      {t('importVoice')}
-                    </button>
-                    <button onClick={() => sfxInput.current?.click()}>
-                      <Upload size={13} />
-                      {t('importSfx')}
-                    </button>
-                    <button onClick={() => musicInput.current?.click()}>
-                      <Upload size={13} />
-                      {t('importMusic')}
-                    </button>
-                  </div>
-                  {moment.voiceId && (
-                    <small>
-                      {t('voice')}: {project.assets.find((a) => a.id === moment.voiceId)?.name}
-                    </small>
-                  )}
-                  {moment.sfxId && (
-                    <small>
-                      {t('sound')}: {project.assets.find((a) => a.id === moment.sfxId)?.name}
-                    </small>
-                  )}
-                  {moment.musicId && (
-                    <small>
-                      {t('music')}: {project.assets.find((a) => a.id === moment.musicId)?.name}
-                    </small>
-                  )}
-                </section>
               )}
               <label>
                 {t('name')}
@@ -1133,37 +1104,40 @@ export function Editor({
                   </label>
                 </>
               )}
-              <div className="field-grid">
+              <details className="sidebar-menu">
+                <summary>{t('appearance')}</summary>
+                <div className="field-grid">
+                  <label>
+                    {t('fill')}
+                    <input
+                      type="color"
+                      value={/^#[\da-f]{6}$/i.test(element.fill) ? element.fill : '#ffffff'}
+                      onChange={(e) => updateElement({ fill: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    {t('stroke')}
+                    <input
+                      type="color"
+                      value={/^#[\da-f]{6}$/i.test(element.stroke) ? element.stroke : '#222521'}
+                      onChange={(e) => updateElement({ stroke: e.target.value })}
+                    />
+                  </label>
+                </div>
                 <label>
-                  {t('fill')}
+                  {t('stroke')} px
                   <input
-                    type="color"
-                    value={/^#[\da-f]{6}$/i.test(element.fill) ? element.fill : '#ffffff'}
-                    onChange={(e) => updateElement({ fill: e.target.value })}
+                    type="number"
+                    min="0"
+                    max="20"
+                    value={element.strokeWidth}
+                    onChange={(e) => updateElement({ strokeWidth: Math.max(0, +e.target.value) })}
                   />
                 </label>
-                <label>
-                  {t('stroke')}
-                  <input
-                    type="color"
-                    value={/^#[\da-f]{6}$/i.test(element.stroke) ? element.stroke : '#222521'}
-                    onChange={(e) => updateElement({ stroke: e.target.value })}
-                  />
-                </label>
-              </div>
-              <label>
-                {t('stroke')} px
-                <input
-                  type="number"
-                  min="0"
-                  max="20"
-                  value={element.strokeWidth}
-                  onChange={(e) => updateElement({ strokeWidth: Math.max(0, +e.target.value) })}
-                />
-              </label>
+              </details>
               {['panel', 'image', 'video', 'vector'].includes(element.kind) && (
-                <>
-                  <div className="section-label">{t('crop')}</div>
+                <details className="sidebar-menu">
+                  <summary>{t('crop')}</summary>
                   {element.kind !== 'panel' && (
                     <button className="primary full" onClick={() => artInput.current?.click()}>
                       <Upload size={14} />
@@ -1219,65 +1193,68 @@ export function Editor({
                     />
                     {t('loop')}
                   </label>
-                </>
+                </details>
               )}
-              {element.pathD && (
-                <label>
-                  {t('pathData')}
-                  <textarea
-                    value={element.pathD}
-                    onChange={(e) => updateElement({ pathD: e.target.value.slice(0, 100000) })}
+              <details className="sidebar-menu">
+                <summary>{t('advancedShape')}</summary>
+                {element.pathD && (
+                  <label>
+                    {t('pathData')}
+                    <textarea
+                      value={element.pathD}
+                      onChange={(e) => updateElement({ pathD: e.target.value.slice(0, 100000) })}
+                    />
+                  </label>
+                )}
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={element.fill === 'none'}
+                    onChange={(e) => updateElement({ fill: e.target.checked ? 'none' : '#ffffff' })}
                   />
+                  {t('noFill')}
                 </label>
-              )}
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={element.fill === 'none'}
-                  onChange={(e) => updateElement({ fill: e.target.checked ? 'none' : '#ffffff' })}
-                />
-                {t('noFill')}
-              </label>
-              {element.kind === 'panel' && !element.pathD && (
-                <>
-                  <div className="section-label">{t('vertices')}</div>
-                  {element.points.map((point, i) => (
-                    <div className="point-fields" key={i}>
-                      <span>{i + 1}</span>
-                      {(['x', 'y', 'curve'] as const).map((key) => (
-                        <input
-                          key={key}
-                          aria-label={`${t(key === 'curve' ? 'curve' : 'vertices')} ${i + 1} ${key}`}
-                          type="number"
-                          step=".05"
-                          min={key === 'curve' ? -0.5 : 0}
-                          max={key === 'curve' ? 0.5 : 1}
-                          value={point[key] ?? 0}
-                          onChange={(e) => {
-                            const points = structuredClone(element.points);
-                            points[i][key] = Math.max(
-                              key === 'curve' ? -0.5 : 0,
-                              Math.min(key === 'curve' ? 0.5 : 1, +e.target.value),
-                            );
-                            updateElement({ points });
-                          }}
-                        />
-                      ))}
-                    </div>
-                  ))}
-                  <button
-                    onClick={() => {
-                      const points = structuredClone(element.points);
-                      const a = points.at(-1)!,
-                        b = points[0];
-                      points.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-                      updateElement({ points });
-                    }}
-                  >
-                    {t('addVertex')}
-                  </button>
-                </>
-              )}
+                {element.kind === 'panel' && !element.pathD && (
+                  <>
+                    <div className="section-label">{t('vertices')}</div>
+                    {element.points.map((point, i) => (
+                      <div className="point-fields" key={i}>
+                        <span>{i + 1}</span>
+                        {(['x', 'y', 'curve'] as const).map((key) => (
+                          <input
+                            key={key}
+                            aria-label={`${t(key === 'curve' ? 'curve' : 'vertices')} ${i + 1} ${key}`}
+                            type="number"
+                            step=".05"
+                            min={key === 'curve' ? -0.5 : 0}
+                            max={key === 'curve' ? 0.5 : 1}
+                            value={point[key] ?? 0}
+                            onChange={(e) => {
+                              const points = structuredClone(element.points);
+                              points[i][key] = Math.max(
+                                key === 'curve' ? -0.5 : 0,
+                                Math.min(key === 'curve' ? 0.5 : 1, +e.target.value),
+                              );
+                              updateElement({ points });
+                            }}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => {
+                        const points = structuredClone(element.points);
+                        const a = points.at(-1)!,
+                          b = points[0];
+                        points.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+                        updateElement({ points });
+                      }}
+                    >
+                      {t('addVertex')}
+                    </button>
+                  </>
+                )}
+              </details>
               <div className="button-row">
                 <button
                   aria-label={t('duplicate')}
@@ -1298,80 +1275,76 @@ export function Editor({
             <p className="sidebar-note">{t('selectedHint')}</p>
           )}
           <div className="property-section moment-properties">
-            {element && !element.editorOnly && (
-              <div className="context-card">
-                <div className="section-label">{t('panelAudio')}</div>
-                <strong>
-                  {element.name} · {String(momentIndex + 1).padStart(2, '0')}
-                </strong>
-                <p>{t('audioHint')}</p>
-              </div>
-            )}
             <div className="section-label">
               {String(momentIndex + 1).padStart(2, '0')} · {t('moments')}
             </div>
-            <label>
-              {t('name')}
-              <input
-                value={moment.label}
-                onChange={(e) => changeMoment({ label: e.target.value })}
-              />
-            </label>
-            <div className="field-grid">
+            <details className="sidebar-menu">
+              <summary>{t('momentSettings')}</summary>
               <label>
-                {t('transition')}
-                <select
-                  value={moment.transition}
-                  onChange={(e) =>
-                    changeMoment({ transition: e.target.value as typeof moment.transition })
-                  }
-                >
-                  {(['none', 'fade', 'slide', 'zoom', 'shake'] as const).map((v) => (
-                    <option key={v} value={v}>
-                      {t(v)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {t('duration')}
+                {t('name')}
                 <input
-                  type="number"
-                  min="0"
-                  max="10000"
-                  value={moment.duration}
-                  onChange={(e) =>
-                    changeMoment({ duration: Math.max(0, Math.min(10000, +e.target.value)) })
-                  }
+                  value={moment.label}
+                  onChange={(e) => changeMoment({ label: e.target.value })}
                 />
               </label>
-            </div>
-            <details open>
-              <summary>
-                {t('reveal')} / {t('hide')}
-              </summary>
-              {page.elements.map((e) => (
-                <div className="reveal-row" key={e.id}>
-                  <span>{e.name}</span>
-                  {(['show', 'hide'] as const).map((action) => (
-                    <input
-                      key={action}
-                      type="checkbox"
-                      aria-label={`${t(action === 'show' ? 'reveal' : 'hide')} ${e.name}`}
-                      checked={moment[action].includes(e.id)}
-                      onChange={(event) =>
-                        changeMoment({
-                          [action]: event.target.checked
-                            ? [...moment[action], e.id]
-                            : moment[action].filter((id) => id !== e.id),
-                        })
-                      }
-                    />
-                  ))}
-                </div>
-              ))}
+              <div className="field-grid">
+                <label>
+                  {t('transition')}
+                  <select
+                    value={moment.transition}
+                    onChange={(e) =>
+                      changeMoment({ transition: e.target.value as typeof moment.transition })
+                    }
+                  >
+                    {(['none', 'fade', 'slide', 'zoom', 'shake'] as const).map((v) => (
+                      <option key={v} value={v}>
+                        {t(v)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {t('duration')}
+                  <input
+                    type="number"
+                    min="0"
+                    max="10000"
+                    value={moment.duration}
+                    onChange={(e) =>
+                      changeMoment({ duration: Math.max(0, Math.min(10000, +e.target.value)) })
+                    }
+                  />
+                </label>
+              </div>
+              <details>
+                <summary>
+                  {t('reveal')} / {t('hide')}
+                </summary>
+                {page.elements.map((e) => (
+                  <div className="reveal-row" key={e.id}>
+                    <span>{e.name}</span>
+                    {(['show', 'hide'] as const).map((action) => (
+                      <input
+                        key={action}
+                        type="checkbox"
+                        aria-label={`${t(action === 'show' ? 'reveal' : 'hide')} ${e.name}`}
+                        checked={moment[action].includes(e.id)}
+                        onChange={(event) =>
+                          changeMoment({
+                            [action]: event.target.checked
+                              ? [...moment[action], e.id]
+                              : moment[action].filter((id) => id !== e.id),
+                          })
+                        }
+                      />
+                    ))}
+                  </div>
+                ))}
+              </details>
             </details>
-            {!element && (
+            <details className="sidebar-menu">
+              <summary>{t('audioSettings')}</summary>
+              <p className="sidebar-note">{t('audioHint')}</p>
               <div className="audio-import-actions">
                 <button onClick={() => voiceInput.current?.click()}>
                   <Upload size={13} />
@@ -1386,28 +1359,28 @@ export function Editor({
                   {t('importMusic')}
                 </button>
               </div>
-            )}
-            {mediaSelect(
-              t('voice'),
-              moment.voiceId,
-              (id) => changeMoment({ voiceId: id }),
-              'audio',
-            )}
-            {mediaSelect(t('sound'), moment.sfxId, (id) => changeMoment({ sfxId: id }), 'audio')}
-            {mediaSelect(
-              t('music'),
-              moment.musicId,
-              (id) => changeMoment({ musicId: id, stopMusic: false }),
-              'audio',
-            )}
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={!!moment.stopMusic}
-                onChange={(e) => changeMoment({ stopMusic: e.target.checked })}
-              />
-              {t('stopMusic')}
-            </label>
+              {mediaSelect(
+                t('voice'),
+                moment.voiceId,
+                (id) => changeMoment({ voiceId: id }),
+                'audio',
+              )}
+              {mediaSelect(t('sound'), moment.sfxId, (id) => changeMoment({ sfxId: id }), 'audio')}
+              {mediaSelect(
+                t('music'),
+                moment.musicId,
+                (id) => changeMoment({ musicId: id, stopMusic: false }),
+                'audio',
+              )}
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={!!moment.stopMusic}
+                  onChange={(e) => changeMoment({ stopMusic: e.target.checked })}
+                />
+                {t('stopMusic')}
+              </label>
+            </details>
             <div className="button-row">
               <button
                 disabled={momentIndex === 0}

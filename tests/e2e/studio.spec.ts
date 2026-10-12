@@ -21,9 +21,10 @@ test('new work supports curved frames, editable text, undo and moments', async (
   await page.goto('/');
   await page.getByRole('button', { name: 'Começar uma obra' }).click();
   await page.getByRole('button', { name: 'Quadro', exact: true }).click();
+  await page.locator('.right-sidebar summary').filter({ hasText: 'Geometria avançada' }).click();
   await page.getByLabel('Curvatura da borda 1 curve').fill('0.25');
   await expect(page.locator('svg path[d*="C"]')).not.toHaveCount(0);
-  await page.getByRole('button', { name: 'Balão', exact: true }).click();
+  await page.getByRole('button', { name: 'Balão neste quadro', exact: true }).click();
   await page.getByRole('textbox', { name: 'Texto', exact: true }).fill('Olá, mundo!');
   await expect(
     page.locator('.editor-paper .canvas-text').filter({ hasText: 'Olá, mundo!' }),

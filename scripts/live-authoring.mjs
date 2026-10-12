@@ -41,6 +41,7 @@ try {
   assert.equal(await page.locator('.editor-paper [data-kind="panel"]').count(), 4);
   // Remove the untouched placeholder page, preserving the imported SVG page.
   await page.locator('.page-thumb').first().click();
+  await page.locator('.left-sidebar summary').filter({ hasText: 'Ações da página' }).click();
   await page.getByRole('button', { name: 'Apagar página', exact: true }).click();
   await page.getByRole('button', { name: 'Remover página', exact: true }).click();
   await page.locator('.editor-paper [data-kind="panel"]').first().click();
@@ -53,12 +54,14 @@ try {
     .setInputFiles({ name: 'art.png', mimeType: 'image/png', buffer: png });
   await page.locator('.editor-paper image').waitFor();
   await page.locator('input[data-import="voice"]').setInputFiles('public/demo/chime.wav');
+  await page.locator('.right-sidebar summary').filter({ hasText: 'Áudio' }).click();
   await page
     .locator('.moment-properties')
     .getByRole('combobox', { name: 'Falas', exact: true })
     .locator('option')
     .nth(1)
     .waitFor({ state: 'attached' });
+  await page.locator('.right-sidebar summary').filter({ hasText: 'Gerenciar modelos' }).click();
   await page.getByRole('button', { name: 'Salvar como modelo', exact: true }).click();
   await page.getByLabel('Nome do modelo').fill('Quadro SVG pessoal');
   await page.getByRole('button', { name: 'Salvar', exact: true }).click();

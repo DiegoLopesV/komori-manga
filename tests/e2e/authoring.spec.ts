@@ -41,6 +41,7 @@ test('imported PNG image is selectable, resizable and removable; pages can be de
   await expect(page.locator('.editor-paper image')).toHaveCount(0);
   await page.getByRole('button', { name: 'Adicionar página', exact: true }).click();
   await expect(page.locator('.page-thumb')).toHaveCount(2);
+  await page.locator('.left-sidebar summary').filter({ hasText: 'Ações da página' }).click();
   await page.getByRole('button', { name: 'Apagar página', exact: true }).click();
   await page.getByRole('button', { name: 'Remover página', exact: true }).click();
   await expect(page.locator('.page-thumb')).toHaveCount(1);
@@ -55,6 +56,7 @@ test('custom shapes are saved as personal presets and remain after reload in ano
   await page.getByRole('button', { name: 'Quadro', exact: true }).click();
   await page.getByRole('button', { name: 'Escolher formato', exact: true }).click();
   await page.getByRole('button', { name: 'Triangular', exact: true }).click();
+  await page.locator('.right-sidebar summary').filter({ hasText: 'Gerenciar modelos' }).click();
   await page.getByRole('button', { name: 'Salvar como modelo', exact: true }).click();
   await page.getByLabel('Nome do modelo').fill('Meu triângulo');
   await page.getByRole('button', { name: 'Salvar', exact: true }).click();
@@ -78,6 +80,7 @@ test('frame audio imports attach to its reveal and linked balloons follow resizi
   await page.locator('input[data-import="voice"]').setInputFiles('public/demo/chime.wav');
   await page.locator('input[data-import="sfx"]').setInputFiles('public/demo/chime.wav');
   await page.locator('input[data-import="music"]').setInputFiles('public/demo/ambience.wav');
+  await page.locator('.right-sidebar summary').filter({ hasText: 'Áudio' }).click();
   await expect(
     page.locator('.moment-properties').getByRole('combobox', { name: 'Falas', exact: true }),
   ).not.toHaveValue('');
@@ -137,4 +140,25 @@ test('finished page has one SVG-only import button with an explanatory tooltip',
     'accept',
     'image/svg+xml,.svg',
   );
+});
+
+test('sidebar hides secondary controls and protects page deletion', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Começar uma obra' }).click();
+  await expect(page.getByRole('button', { name: 'Apagar página', exact: true })).toBeHidden();
+  await page.locator('.left-sidebar summary').filter({ hasText: 'Ações da página' }).click();
+  const deletion = page.getByRole('button', { name: 'Apagar página', exact: true });
+  await expect(deletion).toHaveClass(/danger-button/);
+  await deletion.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await expect(page.locator('.page-thumb')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Quadro', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Salvar como modelo', exact: true })).toBeHidden();
+  await expect(
+    page.getByRole('button', { name: 'Importar fala', exact: true, includeHidden: true }),
+  ).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Importar fala', exact: true })).toBeHidden();
+  await page.locator('.right-sidebar summary').filter({ hasText: 'Áudio' }).click();
+  await expect(page.getByRole('button', { name: 'Importar fala', exact: true })).toBeVisible();
 });
