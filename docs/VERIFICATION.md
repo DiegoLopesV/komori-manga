@@ -54,3 +54,5 @@ Professional-flow review: independent evaluator reproduced disappearing letterin
 Final pre-deploy professional-flow gate: all 20 Chromium flows passed again after the music-gain adjustment; 46 unit/component/Postgres tests and build passed.
 
 Final ambience regression: changing gain in a later panel without choosing the music again was reproduced and fixed. A dedicated test now verifies inherited ambience gain. The final unit/component/Postgres count is 47, with TypeScript/build passing.
+
+Visual QA caught balloons still obscuring each other with a small cascade offset. A regression now checks disjoint balloon bounds when a frame has enough room. Placement uses free slots in both ordinary and preset lettering, leaving full-frame composition under author control. 48 unit/component/Postgres tests and build passed. A browser test click was moved to an unobstructed panel corner and now asserts panel selection before resize; clicking the new balloon correctly selects it.

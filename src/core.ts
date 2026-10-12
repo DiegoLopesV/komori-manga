@@ -761,3 +761,41 @@ export function musicVolumeAt(moments: Moment[], index: number): number {
   });
   return volume;
 }
+
+export function placeLettering(elements: Element[], parent: Element, source: Element): Element {
+  const e = { ...source },
+    padding = Math.min(20, parent.width * 0.08, parent.height * 0.08),
+    gap = 24,
+    tail = e.kind === 'bubble' ? 30 : 0;
+  const columns = Math.max(1, Math.floor((parent.width - 2 * padding + gap) / (e.width + gap))),
+    rows = Math.max(1, Math.floor((parent.height - 2 * padding + gap) / (e.height + tail + gap)));
+  const siblings = elements.filter(
+    (item) => item.parentId === parent.id && ['bubble', 'text', 'sfx'].includes(item.kind),
+  );
+  for (let row = 0; row < rows; row++)
+    for (let col = 0; col < columns; col++) {
+      const x = parent.x + padding + col * (e.width + gap),
+        y = parent.y + padding + row * (e.height + tail + gap);
+      if (
+        siblings.every(
+          (old) =>
+            x >= old.x + old.width + 8 ||
+            x + e.width + 8 <= old.x ||
+            y >= old.y + old.height + (old.kind === 'bubble' ? 30 : 0) + 8 ||
+            y + e.height + tail + 8 <= old.y,
+        )
+      )
+        return { ...e, x, y };
+    }
+  return {
+    ...e,
+    x: Math.max(parent.x, Math.min(parent.x + parent.width - e.width, parent.x + padding)),
+    y: Math.max(
+      parent.y,
+      Math.min(
+        parent.y + parent.height - e.height,
+        parent.y + padding + (siblings.length % rows) * (e.height + tail + gap),
+      ),
+    ),
+  };
+}

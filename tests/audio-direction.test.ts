@@ -7,6 +7,7 @@ import {
   deleteMoment,
   visibleIds,
   musicVolumeAt,
+  placeLettering,
 } from '../src/core';
 import { startAudioSequence, type AudioLike } from '../src/audioDirection';
 afterEach(() => vi.useRealTimers());
@@ -180,4 +181,29 @@ it('a panel can adjust inherited ambience volume without restarting the music', 
   p.moments[1].musicVolume = 0.3;
   expect(musicVolumeAt(p.moments, 1)).toBe(0.3);
   expect(musicVolumeAt(p.moments, 2)).toBe(0.3);
+});
+
+it('places multiple dialogue balloons without overlap when the frame has room', () => {
+  const parent = { ...newElement('panel'), width: 730, height: 340 };
+  const children: ReturnType<typeof newElement>[] = [];
+  for (let i = 0; i < 3; i++) {
+    const next = placeLettering(children, parent, {
+      ...newElement('bubble'),
+      parentId: parent.id,
+      width: 240,
+      height: 100,
+    });
+    expect(next.x).toBeGreaterThanOrEqual(parent.x);
+    expect(next.y + next.height).toBeLessThanOrEqual(parent.y + parent.height);
+    expect(
+      children.every(
+        (old) =>
+          next.x >= old.x + old.width ||
+          next.x + next.width <= old.x ||
+          next.y >= old.y + old.height ||
+          next.y + next.height <= old.y,
+      ),
+    ).toBe(true);
+    children.push(next);
+  }
 });

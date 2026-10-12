@@ -10,7 +10,7 @@ Avaliação independente por subagente, inspeção de código e sessões descart
 | Não havia ordem, volume ou intervalo por fala | Seção Falas e efeitos deste momento, com nomes, trechos de texto, setas, ganho e pausa |
 | Não havia timing para impacto de transição | Efeitos na entrada, ao concluir a transição ou após as falas, com atraso configurável |
 | Lettering temporário não tinha fluxo | Mais opções na timeline → Transição com onomatopeia; opção de exibição temporária e alternativa estática no movimento reduzido |
-| Novos balões ficavam encobertos e com nomes iguais | Nomes numerados e posições em cascata dentro do quadro, também para modelos |
+| Novos balões ficavam encobertos e com nomes iguais | Nomes numerados e colocação em espaços livres dentro do quadro, também para modelos |
 | Novo momento mantinha o balão anterior selecionado | Seleção limpa ao criar momento; prévia inicia no momento em edição |
 | Apagar um momento podia remover conteúdo da leitura | Confirmação e transferência dos elementos para momento vizinho, com desfazer |
 | Arrastar a arte por engano durante lettering | Bloquear arraste no submenu da camada |
@@ -36,4 +36,4 @@ Testar este momento abre a prévia na posição em edição. Inicie a leitura pa
 
 ## Limites da rodada
 
-Falas usam o fim do arquivo como limite da fila: não há corte, fade, waveform nem edição da gravação no estúdio. Áudio e animação são importados prontos. Efeitos podem se sobrepor de forma intencional; não há uma estação de mixagem multipista. O bloqueio protege o arraste, sem impedir edição por propriedades. Compatibilidade com Safari/iOS e validação artística com autores reais seguem no plano de revisão; os testes de navegador são Chromium, incluindo viewport móvel.
+Falas usam o fim do arquivo como limite da fila: não há corte, fade, waveform nem edição da gravação no estúdio. Áudio e animação são importados prontos. Efeitos podem se sobrepor de forma intencional; não há uma estação de mixagem multipista. O bloqueio protege o arraste, sem impedir edição por propriedades. O posicionamento inicial evita sobreposição enquanto há espaço no quadro; composições cheias exigem ajuste manual. Compatibilidade com Safari/iOS e validação artística com autores reais seguem no plano de revisão; os testes de navegador são Chromium, incluindo viewport móvel.

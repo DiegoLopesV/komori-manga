@@ -103,7 +103,10 @@ test('library audio is assigned by element type and linked balloons follow resiz
   const before = await page.locator('.editor-paper [data-kind="bubble"]').getAttribute('transform');
   await page
     .locator(`.editor-paper [data-element-id="${panelId}"]`)
-    .click({ position: { x: 15, y: 15 } });
+    .click({ position: { x: 5, y: 5 } });
+  await expect(page.getByRole('combobox', { name: 'Tipo do elemento', exact: true })).toHaveValue(
+    'panel',
+  );
   await page.getByRole('spinbutton', { name: 'Largura', exact: true }).fill('600');
   expect(
     await page.locator('.editor-paper [data-kind="bubble"]').getAttribute('transform'),

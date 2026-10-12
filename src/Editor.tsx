@@ -32,6 +32,7 @@ import {
   removeAsset,
   deleteMoment,
   audioGain,
+  placeLettering,
   removeElement,
   deletePage,
   descendants,
@@ -319,14 +320,7 @@ export function Editor({
       e.width = Math.min(e.width, parent.width * 0.7);
       e.height = Math.min(e.height, parent.height * 0.45);
     }
-    if (parent && e.parentId) {
-      const offset =
-        page.elements.filter(
-          (child) => child.parentId === parent.id && ['bubble', 'text', 'sfx'].includes(child.kind),
-        ).length * 24;
-      e.x = Math.min(parent.x + parent.width - e.width - 8, e.x + offset);
-      e.y = Math.min(parent.y + parent.height - e.height - 8, e.y + offset);
-    }
+    if (parent && e.parentId) Object.assign(e, placeLettering(page.elements, parent, e));
     if (kind === 'panel' && page.backgroundAssetId) {
       e.assetId = page.backgroundAssetId;
       e.pageImage = true;
@@ -492,15 +486,9 @@ export function Editor({
       }
       if (parent && ['bubble', 'text', 'sfx'].includes(e.kind)) {
         e.parentId = parent.id;
-        const offset =
-          page.elements.filter(
-            (child) =>
-              child.parentId === parent.id && ['bubble', 'text', 'sfx'].includes(child.kind),
-          ).length * 24;
         e.width = Math.min(e.width, parent.width * 0.7);
         e.height = Math.min(e.height, parent.height * 0.45);
-        e.x = Math.min(parent.x + parent.width - e.width - 8, parent.x + 20 + offset);
-        e.y = Math.min(parent.y + parent.height - e.height - 8, parent.y + 20 + offset);
+        Object.assign(e, placeLettering(page.elements, parent, e));
       }
       const parentMoment = e.parentId
         ? page.moments.findIndex((m) => m.show.includes(e.parentId!))
