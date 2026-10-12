@@ -47,7 +47,8 @@ describe('authoring and publication', () => {
     const page = createProject().chapters[0].pages[0];
     const mapped = mapPageArtwork(page, 'page-art');
     expect(mapped.backgroundAssetId).toBe('page-art');
-    expect(mapped.elements.every((e) => e.assetId === 'page-art' && e.pageImage)).toBe(true);
+    expect(mapped.elements.filter(e=>e.kind==='panel').every((e) => e.assetId === 'page-art' && e.pageImage)).toBe(true);
+    expect(mapped.elements.find(e=>e.id===mapped.backgroundElementId)?.editorOnly).toBe(true);
     expect(mapped.moments[0].show).toHaveLength(1);
     expect(applyTemplate(mapped, 'splash').elements.at(-1)?.pageImage).toBe(true);
   });

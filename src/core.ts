@@ -12,7 +12,12 @@ export type Asset = {
 export type Element = {
   id: string;
   name: string;
-  kind: 'panel' | 'image' | 'bubble' | 'text' | 'sfx' | 'video';
+  kind: 'panel' | 'image' | 'bubble' | 'text' | 'sfx' | 'video' | 'vector' | 'group';
+  parentId?: string;
+  pathD?: string;
+  textColor?: string;
+  fontFamily?: string;
+  editorOnly?: boolean;
   x: number;
   y: number;
   width: number;
@@ -42,6 +47,7 @@ export type Moment = {
   sfxId?: string;
   musicId?: string;
   stopMusic?: boolean;
+  anchorId?: string;
 };
 export type Page = {
   id: string;
@@ -51,7 +57,10 @@ export type Page = {
   elements: Element[];
   moments: Moment[];
   backgroundAssetId?: string;
+  backgroundElementId?: string;
+  backgroundFill?: string;
 };
+export type ElementTemplate = { id: string; name: string; element: Element };
 export type Chapter = { id: string; title: string; pages: Page[] };
 export type Project = {
   version: 1;
@@ -186,11 +195,25 @@ export function advance(state: Playback, moments: Moment[]): Playback {
 export function back(state: Playback): Playback {
   return { index: Math.max(0, state.index - 1), transitioning: false, playAudio: false };
 }
-export function visibleIds(moments: Moment[], index: number): Set<string> {
+export function visibleIds(
+  moments: Moment[],
+  index: number,
+  elements: Element[] = [],
+): Set<string> {
   const visible = new Set<string>();
+  const explicit = new Set(moments.flatMap((m) => m.show));
   moments.slice(0, index + 1).forEach((moment) => {
-    moment.show.forEach((id) => visible.add(id));
-    moment.hide.forEach((id) => visible.delete(id));
+    moment.show.forEach((id) => {
+      visible.add(id);
+      if (elements.find((e) => e.id === id)?.kind === 'group')
+        descendants(elements, id).forEach((child) => {
+          if (!explicit.has(child)) visible.add(child);
+        });
+    });
+    moment.hide.forEach((id) => {
+      visible.delete(id);
+      descendants(elements, id).forEach((child) => visible.delete(child));
+    });
   });
   return visible;
 }
@@ -263,6 +286,18 @@ function snapshotPage(page: Page): Page {
 export function mapPageArtwork(page: Page, assetId: string): Page {
   const copy = snapshotPage(page);
   copy.backgroundAssetId = assetId;
+  copy.elements = copy.elements.filter((e) => e.id !== copy.backgroundElementId);
+  const background = {
+    ...newElement('image', 0, 0),
+    name: 'Página importada',
+    width: page.width,
+    height: page.height,
+    assetId,
+    strokeWidth: 0,
+    editorOnly: true,
+  };
+  copy.backgroundElementId = background.id;
+  copy.elements.unshift(background);
   copy.elements.forEach((e) => {
     if (e.kind === 'panel') {
       e.assetId = assetId;
@@ -270,6 +305,194 @@ export function mapPageArtwork(page: Page, assetId: string): Page {
     }
   });
   return copy;
+}
+export function descendants(elements: Element[], id: string): Set<string> {
+  const result = new Set<string>();
+  const queue = [id];
+  while (queue.length) {
+    const parent = queue.shift()!;
+    for (const e of elements)
+      if (e.parentId === parent && !result.has(e.id) && e.id !== id) {
+        result.add(e.id);
+        queue.push(e.id);
+      }
+  }
+  return result;
+}
+export function changeElement(page: Page, updated: Element): Page {
+  const result = snapshotPage(page),
+    original = page.elements.find((e) => e.id === updated.id);
+  if (!original) return result;
+  const children = descendants(page.elements, updated.id),
+    sx = updated.width / original.width,
+    sy = updated.height / original.height;
+  result.elements = result.elements.map((e) =>
+    e.id === updated.id
+      ? structuredClone(updated)
+      : children.has(e.id)
+        ? {
+            ...e,
+            x: updated.x + (e.x - original.x) * sx,
+            y: updated.y + (e.y - original.y) * sy,
+            width: e.width * sx,
+            height: e.height * sy,
+            fontSize: e.fontSize * Math.min(sx, sy),
+          }
+        : e,
+  );
+  return result;
+}
+export function removeElement(page: Page, id: string): Page {
+  const result = snapshotPage(page),
+    ids = descendants(page.elements, id);
+  ids.add(id);
+  result.elements = result.elements.filter((e) => !ids.has(e.id));
+  result.moments = result.moments.filter((m) => {
+    const affected = m.show.some((id) => ids.has(id));
+    m.show = m.show.filter((e) => !ids.has(e));
+    m.hide = m.hide.filter((e) => !ids.has(e));
+    if (m.anchorId && ids.has(m.anchorId)) {
+      delete m.anchorId;
+      delete m.voiceId;
+      delete m.sfxId;
+      delete m.musicId;
+    }
+    return !affected || m.show.length > 0 || m.hide.length > 0;
+  });
+  if (!result.moments.length)
+    result.moments.push({
+      id: uid(),
+      label: 'Abertura',
+      show: [],
+      hide: [],
+      transition: 'fade',
+      duration: 400,
+    });
+  if (ids.has(result.backgroundElementId ?? '')) {
+    delete result.backgroundElementId;
+    delete result.backgroundAssetId;
+    result.elements.forEach((e) => {
+      if (e.pageImage) {
+        delete e.assetId;
+        e.pageImage = false;
+      }
+    });
+  }
+  return result;
+}
+export function normalizeProject(project: Project): Project {
+  const copy = snapshot(project);
+  copy.chapters.forEach((c) =>
+    c.pages.forEach((p) => {
+      if (p.backgroundAssetId && !p.backgroundElementId) {
+        const e = {
+          ...newElement('image', 0, 0),
+          name: 'Página importada',
+          assetId: p.backgroundAssetId,
+          width: p.width,
+          height: p.height,
+          strokeWidth: 0,
+          editorOnly: true,
+        };
+        p.elements.unshift(e);
+        p.backgroundElementId = e.id;
+      }
+    }),
+  );
+  return copy;
+}
+export function duplicateElement(page: Page, id: string): { page: Page; id: string } {
+  const copy = snapshotPage(page),
+    ids = descendants(page.elements, id);
+  ids.add(id);
+  const mappings = new Map([...ids].map((old) => [old, uid()]));
+  page.elements
+    .filter((e) => ids.has(e.id))
+    .forEach((e) => {
+      copy.elements.push({
+        ...structuredClone(e),
+        id: mappings.get(e.id)!,
+        parentId: e.parentId ? (mappings.get(e.parentId) ?? e.parentId) : undefined,
+        x: e.x + 20,
+        y: e.y + 20,
+      });
+    });
+  copy.moments.forEach((m) => {
+    m.show.push(...m.show.filter((i) => ids.has(i)).map((i) => mappings.get(i)!));
+    m.hide.push(...m.hide.filter((i) => ids.has(i)).map((i) => mappings.get(i)!));
+  });
+  return { page: copy, id: mappings.get(id)! };
+}
+export function deletePage(project: Project, chapterIndex: number, pageIndex: number): Project {
+  const result = snapshot(project),
+    chapter = result.chapters[chapterIndex];
+  chapter.pages.splice(pageIndex, 1);
+  if (!chapter.pages.length) chapter.pages.push(newPage());
+  return result;
+}
+export function elementPreset(kind: Element['kind'], shape: string): Element {
+  const e = newElement(kind);
+  if (shape === 'diagonal')
+    e.points = [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0.85, y: 1 },
+      { x: 0, y: 1 },
+    ];
+  if (shape === 'triangle')
+    e.points = [
+      { x: 0.5, y: 0 },
+      { x: 1, y: 1 },
+      { x: 0, y: 1 },
+    ];
+  if (shape === 'rounded')
+    e.pathD = 'M.12 0H.88Q1 0 1 .12V.88Q1 1 .88 1H.12Q0 1 0 .88V.12Q0 0 .12 0Z';
+  if (shape === 'circle' || shape === 'oval') e.pathD = 'M0 .5A.5 .5 0 1 0 1 .5A.5 .5 0 1 0 0 .5Z';
+  if (shape === 'thought')
+    e.pathD =
+      'M.1 .2Q0 0 .3 .1Q.4 -.05 .6 .1Q1 0 .9 .4Q1 .7 .8 .8Q.7 1 .45 .85Q.2 1 .15 .75Q-.1 .6 .1 .2Z';
+  if (shape === 'shout') {
+    e.points = Array.from({ length: 24 }, (_, i) => {
+      const a = (i * Math.PI) / 12 - Math.PI / 2,
+        r = i % 2 ? 0.36 : 0.5;
+      return { x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r };
+    });
+    e.pathD = undefined;
+  }
+  if (shape === 'caption') {
+    e.pathD = 'M0 0H1V1H0Z';
+    e.fill = '#f1ead9';
+    e.strokeWidth = 1;
+    e.textColor = '#222521';
+    e.fontSize = 22;
+  }
+  if (shape === 'bold') {
+    e.fontSize = 40;
+    e.textColor = '#a44f35';
+  }
+  if (shape === 'whisper') {
+    e.fontSize = 17;
+    e.textColor = '#697767';
+  }
+  return e;
+}
+export function makeTemplate(element: Element, name: string): ElementTemplate {
+  const copy = structuredClone(element);
+  copy.id = uid();
+  copy.x = 0;
+  copy.y = 0;
+  delete copy.assetId;
+  delete copy.posterId;
+  delete copy.parentId;
+  delete copy.editorOnly;
+  copy.pageImage = false;
+  copy.imageX = 0;
+  copy.imageY = 0;
+  copy.imageScale = 1;
+  return { id: uid(), name, element: copy };
+}
+export function instantiateTemplate(template: ElementTemplate): Element {
+  return { ...structuredClone(template.element), id: uid(), name: template.name, x: 55, y: 65 };
 }
 export function safeLink(value: string): boolean {
   try {

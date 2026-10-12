@@ -1,5 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
-import { type Project, type Asset, snapshot, uid, validateUpload, buildPublication } from './core';
+import {
+  type Project,
+  type Asset,
+  snapshot,
+  uid,
+  validateUpload,
+  buildPublication,
+  normalizeProject,
+} from './core';
 import { createWriteQueue } from './serial';
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -22,7 +30,7 @@ export async function saveDraft(project: Project, ownerId: string) {
   });
 }
 export async function resolveAssets(project: Project): Promise<Project> {
-  const copy = snapshot(project);
+  const copy = normalizeProject(project);
   if (!cloud) return copy;
   const paths = copy.assets.flatMap((a) => (a.path ? [a.path] : []));
   if (!paths.length) return copy;

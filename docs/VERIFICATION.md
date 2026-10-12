@@ -30,3 +30,9 @@ Initial automated browser coverage is Chromium, including a mobile viewport; it 
 - GitHub workflow is configured for pushes/PRs. Automatic Vercel Git connection was rejected by provider access; deploys currently use the authenticated Vercel CLI, not a promised automatic push deployment.
 
 Tests reduce regression risk; they do not guarantee absence of bugs. Email confirmation/recovery delivery remains deferred by the owner's pilot decision.
+
+## Editable SVG and authoring follow-up
+
+35 unit/component/Postgres tests and 12 Chromium flow tests passed locally. Coverage includes generator-style SVG polygons, nested groups/curves/text/transforms, rejected executable/external SVG content, coordinated parent-child resizing/deletion/duplication, private reusable presets, compatibility with prior PNG drafts, selecting/resizing/removing PNG page layers, deleting pages with undo, direct art/audio import and previews starting on the active page.
+
+`scripts/live-authoring.mjs` passed against the real Supabase with the user-provided generator SVG as a local fixture: four native frames, real art/voice uploads, a linked speech bubble, private cloud preset and anonymous published reader. The original file and its description/tracking metadata are not committed or executed. The committed test fixture is geometry-only. The script uses disposable test accounts and removes its data afterward.

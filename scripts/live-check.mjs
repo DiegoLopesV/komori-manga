@@ -42,7 +42,7 @@ try {
     'base64',
   );
   await page
-    .locator('input[type=file]')
+    .locator('input[type=file][multiple]')
     .setInputFiles({ name: 'test.png', mimeType: 'image/png', buffer: png });
   await page.locator('.asset-card').waitFor();
   await page.locator('.asset-card').click();

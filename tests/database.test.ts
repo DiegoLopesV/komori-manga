@@ -34,6 +34,20 @@ async function as(role: string, id: string, sql: string) {
   return db.query(sql);
 }
 describe('database ownership and publication', () => {
+  it('personal templates are reusable but private to their author', async () => {
+    await as(
+      'authenticated',
+      owner,
+      `insert into element_templates(owner_id,definition) values ('${owner}','{"name":"Meu quadro"}')`,
+    );
+    expect(
+      (await as('authenticated', stranger, 'select * from element_templates')).rows,
+    ).toHaveLength(0);
+    await as('authenticated', stranger, `update element_templates set definition='{}'`);
+    expect(
+      (await as('authenticated', owner, 'select definition from element_templates')).rows,
+    ).toEqual([{ definition: { name: 'Meu quadro' } }]);
+  });
   it('author can save draft; readers cannot see it', async () => {
     await as(
       'authenticated',

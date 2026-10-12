@@ -9,6 +9,11 @@ Faça a revisão no computador para editar e no celular para ler. Use primeiro �
 - Importar quadros separados; verificar proporção, recorte, escala e posição da imagem.
 - Criar balões, textos e onomatopeias; testar tamanhos, cores, duplicação, ordem das camadas e desfazer/refazer.
 - Selecionar um quadro e pressionar Delete/Backspace; conferir remoção e desfazer. Digitar em um balão não deve acionar remoção do elemento.
+- Importar o SVG do gerador Oyasumi e conferir os quatro quadros, dimensões e vértices. Testar “Importar arte neste quadro” diretamente nas propriedades.
+- Selecionar “Editar imagem da página” em uma página PNG, mover/redimensionar/remover a camada. Apagar uma página e desfazer.
+- Vincular balão/texto/onomatopeia a um quadro; mover e redimensionar o quadro para conferir o conjunto. Separar uma revelação quando desejar outra fala.
+- Escolher formatos e salvar um modelo pessoal; reutilizar em outra obra. Conferir que modelos privados não ficam na publicação nem desaparecem ao apagar a obra original.
+- Importar fala, SFX e música nos controles do elemento; conferir o momento associado e reutilização pelo dropdown.
 - Conferir se a interface atrapalha a arte em páginas densas. Anotar principalmente tarefas difíceis e controles pouco claros.
 
 ## 2. Direção e experiência de leitura

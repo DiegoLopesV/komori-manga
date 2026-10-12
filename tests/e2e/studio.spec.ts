@@ -29,9 +29,9 @@ test('new work supports curved frames, editable text, undo and moments', async (
     page.locator('.editor-paper .canvas-text').filter({ hasText: 'Olá, mundo!' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Novo momento', exact: true }).click();
-  await expect(page.locator('.moment-card')).toHaveCount(5);
+  await expect(page.locator('.moment-card')).toHaveCount(6);
   await page.getByRole('button', { name: 'Desfazer', exact: true }).click();
-  await expect(page.locator('.moment-card')).toHaveCount(4);
+  await expect(page.locator('.moment-card')).toHaveCount(5);
 });
 test('English interface and mobile reader fit the viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });

@@ -15,6 +15,20 @@ Piloto: https://komori-manga.vercel.app
 - Contas de autores, obras/capítulos, rascunhos privados e publicação do capítulo atual por link. Publicar um capítulo preserva os outros capítulos já publicados.
 - Interface PT-BR/English e links externos de apoio/encomendas.
 
+## SVG e criação de conjuntos
+
+“Importar SVG editável” converte formas, polígonos, curvas, textos, imagens incorporadas e grupos em elementos do estúdio. O SVG do gerador Oyasumi é convertido em quadros com vértices editáveis. A importação preserva dimensões do `viewBox`; quando a página atual já contém elementos, cria uma nova página para preservar o trabalho existente. Use “Apagar página” para remover páginas do rascunho, com confirmação e desfazer.
+
+O importador não executa scripts, HTML embutido ou referências externas. Limite inicial: 2 MB de XML e 2000 objetos. Filtros, máscaras, recortes complexos, pinturas por referência/gradiente e texto rotacionado não têm conversão completa; o editor informa recursos não convertidos. Texto convertido em contornos continua sendo geometria, não texto recuperável. PNGs incorporados continuam imagens, não desenhos decompostos.
+
+Uma página PNG tem agora uma camada selecionável: “Editar imagem da página”. Pode ser movida, redimensionada pela alça ou pelos campos e removida. Os quadros recortam essa imagem. Rascunhos PNG da versão anterior são adaptados ao abrir.
+
+Selecione um quadro e use “Importar arte neste quadro”, “Balão neste quadro”, “Texto neste quadro” ou “Onomatopeia neste quadro”. Elementos vinculados acompanham a posição e o tamanho do quadro, e podem ser desvinculados pelo campo de vínculo. “Revelar em outro momento” separa um elemento na sequência de leitura. A prévia inicia na página atual do editor.
+
+Os botões “Importar fala”, “Importar efeito sonoro” e “Importar música” associam arquivos ao momento que revela o elemento selecionado. Os dropdowns permitem reutilizar materiais já importados. Cada momento mantém uma fala, um SFX e uma seleção de música; para falas sucessivas, use momentos separados.
+
+“Escolher formato” aplica formatos prontos a quadros, balões, texto e onomatopeias. “Salvar como modelo” guarda forma, estilo e texto sem levar referências à arte ou ao quadro original. “Modelos de elementos” reutiliza esses modelos em outras obras. Sem conta, a biblioteca fica neste navegador; com conta, fica privada no Supabase.
+
 Não é uma ferramenta de desenho ou geração de animações. A arte e as gravações vêm do autor. O software usa GPL-3.0-only; as obras dos usuários continuam sendo deles. Os materiais procedurais de `public/demo` podem ser reutilizados sob CC0.
 
 ## Executar

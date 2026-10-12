@@ -21,7 +21,9 @@
     "@supabase/supabase-js": "2.117.3",
     "lucide-react": "1.55.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "svg-path-bbox": "2.1.0",
+    "svgpath": "2.6.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.9",

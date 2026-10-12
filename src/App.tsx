@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import { ArrowUpRight, Plus, Code2, BookOpen, Layers, Play, X, Heart, Trash2 } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
-import { Editor } from './Editor';
+const Editor = lazy(() => import('./Editor').then((module) => ({ default: module.Editor })));
 import { Reader } from './Reader';
 import { Canvas } from './Canvas';
 import { cloud, loadPublished, loadWorks, deleteWork } from './cloud';
@@ -152,18 +152,20 @@ export function App() {
   if (editing)
     return (
       <>
-        <Editor
-          key={editing.id}
-          initial={editing}
-          language={language}
-          ownerId={session?.user.id}
-          onBack={() => setEditing(undefined)}
-          onSave={save}
-          onLogin={() => {
-            setAuthMode('login');
-            setAuth(true);
-          }}
-        />
+        <Suspense fallback={<div className="loading-page">{t('loading')}</div>}>
+          <Editor
+            key={editing.id}
+            initial={editing}
+            language={language}
+            ownerId={session?.user.id}
+            onBack={() => setEditing(undefined)}
+            onSave={save}
+            onLogin={() => {
+              setAuthMode('login');
+              setAuth(true);
+            }}
+          />
+        </Suspense>
         {authDialog()}
       </>
     );

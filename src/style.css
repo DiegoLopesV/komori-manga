@@ -1461,3 +1461,74 @@ p {
 .danger-button:hover {
   background: #853e28;
 }
+
+.element-actions,
+.audio-import-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 12px 0;
+}
+.element-actions button,
+.audio-import-actions button {
+  font-size: 10px;
+  padding: 8px;
+  justify-content: flex-start;
+}
+.context-card {
+  padding: 12px;
+  background: #eeeee4;
+  border: 1px solid #dddfd1;
+  border-radius: 5px;
+  margin: 14px 0;
+}
+.context-card p {
+  font-size: 10px;
+  line-height: 1.7;
+  color: #727a6b;
+  margin: 8px 0;
+}
+.context-card strong {
+  font-size: 10px;
+}
+.linked-child {
+  display: block;
+  font-size: 10px;
+  padding: 6px;
+  border: 0;
+}
+.separate-reveal {
+  font-size: 10px;
+}
+.preset-modal {
+  max-width: 650px;
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 15px 0 25px;
+}
+.preset-grid > button,
+.personal-preset > button:first-child {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  width: 100%;
+}
+.preset-grid span {
+  font-size: 10px;
+}
+.personal-preset {
+  position: relative;
+}
+.preset-remove {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  padding: 3px 8px;
+  background: #fffdf8;
+}
+.element-actions .primary {
+  justify-content: center;
+}

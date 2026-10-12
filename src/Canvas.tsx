@@ -1,5 +1,6 @@
 import { useRef, type PointerEvent, type CSSProperties } from 'react';
 import { geometryPath, type Page, type Element, type Asset } from './core';
+import svgpath from 'svgpath';
 export function Canvas({
   page,
   assets,
@@ -27,6 +28,7 @@ export function Canvas({
   const drag = useRef<{
     id: string;
     point?: number;
+    resize?: boolean;
     x: number;
     y: number;
     original: Element;
@@ -41,8 +43,14 @@ export function Canvas({
   function move(event: PointerEvent<SVGSVGElement>) {
     if (!drag.current || !onChange) return;
     const position = coordinate(event),
-      { original, point } = drag.current;
-    if (point !== undefined) {
+      { original, point, resize } = drag.current;
+    if (resize) {
+      onChange({
+        ...original,
+        width: Math.max(20, position.x - original.x),
+        height: Math.max(20, position.y - original.y),
+      });
+    } else if (point !== undefined) {
       const points = structuredClone(original.points);
       points[point] = {
         ...points[point],
@@ -72,27 +80,23 @@ export function Canvas({
         drag.current = null;
       }}
     >
-      <rect width={page.width} height={page.height} fill="#fffdf8" />
-      {onChange && page.backgroundAssetId && (
-        <image
-          href={asset(page.backgroundAssetId)?.src}
-          width={page.width}
-          height={page.height}
-          opacity=".25"
-          preserveAspectRatio="xMidYMid slice"
-        />
-      )}
+      <rect width={page.width} height={page.height} fill={page.backgroundFill ?? '#fffdf8'} />
       {page.elements
-        .filter((e) => !visible || visible.has(e.id))
+        .filter((e) => !visible || (!e.editorOnly && visible.has(e.id)))
         .map((e) => {
           const file = asset(e.assetId),
             poster = asset(e.posterId),
             clip = `clip-${page.id}-${e.id}`;
-          const path = geometryPath(e.points, e.width, e.height);
+          const path = e.pathD
+            ? svgpath(e.pathD).scale(e.width, e.height).toString()
+            : geometryPath(e.points, e.width, e.height);
+          const background = page.elements.find((item) => item.id === page.backgroundElementId);
           const isAnimated = animated?.has(e.id) && !reduced;
           return (
             <g
               key={e.id}
+              data-element-id={e.id}
+              data-kind={e.kind}
               transform={`translate(${e.x} ${e.y})`}
               onPointerDown={(event) => {
                 if (!onChange) return;
@@ -118,16 +122,42 @@ export function Canvas({
                     <path d={path} />
                   </clipPath>
                 </defs>
-                {(e.kind === 'panel' || e.kind === 'image' || e.kind === 'video') && (
+                {e.kind === 'group' && onChange && (
+                  <rect
+                    width={e.width}
+                    height={e.height}
+                    fill="transparent"
+                    stroke="#a4b09f"
+                    strokeDasharray="6 6"
+                  />
+                )}
+                {(['panel', 'image', 'video', 'vector'].includes(e.kind) ||
+                  (['bubble', 'text', 'sfx'].includes(e.kind) && e.pathD)) && (
                   <>
                     <path d={path} fill={e.fill} />
                     {file && file.type === 'image' && (
                       <image
                         href={reduced && file.mime === 'image/gif' ? poster?.src : file.src}
-                        x={e.pageImage ? -e.x + e.imageX : e.imageX}
-                        y={e.pageImage ? -e.y + e.imageY : e.imageY}
-                        width={(e.pageImage ? page.width : e.width) * e.imageScale}
-                        height={(e.pageImage ? page.height : e.height) * e.imageScale}
+                        x={
+                          e.pageImage
+                            ? (background?.x ?? 0) - e.x + (background?.imageX ?? 0) + e.imageX
+                            : e.imageX
+                        }
+                        y={
+                          e.pageImage
+                            ? (background?.y ?? 0) - e.y + (background?.imageY ?? 0) + e.imageY
+                            : e.imageY
+                        }
+                        width={
+                          (e.pageImage ? (background?.width ?? page.width) : e.width) *
+                          e.imageScale *
+                          (e.pageImage ? (background?.imageScale ?? 1) : 1)
+                        }
+                        height={
+                          (e.pageImage ? (background?.height ?? page.height) : e.height) *
+                          e.imageScale *
+                          (e.pageImage ? (background?.imageScale ?? 1) : 1)
+                        }
                         preserveAspectRatio="xMidYMid slice"
                         clipPath={`url(#${clip})`}
                       />
@@ -167,7 +197,7 @@ export function Canvas({
                     <path d={path} fill="none" stroke={e.stroke} strokeWidth={e.strokeWidth} />
                   </>
                 )}
-                {e.kind === 'bubble' && (
+                {e.kind === 'bubble' && !e.pathD && (
                   <>
                     <ellipse
                       cx={e.width / 2}
@@ -190,7 +220,11 @@ export function Canvas({
                   <foreignObject width={e.width} height={e.height}>
                     <div
                       className={`canvas-text text-${e.kind}`}
-                      style={{ fontSize: e.fontSize, color: e.stroke }}
+                      style={{
+                        fontSize: e.fontSize,
+                        color: e.textColor ?? e.stroke,
+                        fontFamily: e.fontFamily,
+                      }}
                     >
                       {e.text}
                     </div>
@@ -208,6 +242,7 @@ export function Canvas({
                     strokeDasharray="8 5"
                   />
                   {e.kind === 'panel' &&
+                    !e.pathD &&
                     e.points.map((p, i) => (
                       <circle
                         key={i}
@@ -230,6 +265,28 @@ export function Canvas({
                         }}
                       />
                     ))}
+                  <rect
+                    data-resize-handle
+                    width={14}
+                    height={14}
+                    x={e.width - 7}
+                    y={e.height - 7}
+                    fill="#a34e34"
+                    stroke="white"
+                    strokeWidth={2}
+                    style={{ cursor: 'nwse-resize' }}
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      drag.current = {
+                        id: e.id,
+                        resize: true,
+                        x: 0,
+                        y: 0,
+                        original: structuredClone(e),
+                      };
+                      root.current?.setPointerCapture(event.pointerId);
+                    }}
+                  />
                 </>
               )}
             </g>

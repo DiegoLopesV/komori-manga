@@ -27,12 +27,24 @@ import {
   uid,
   safeLink,
   mapPageArtwork,
+  changeElement,
+  removeElement,
+  deletePage,
+  descendants,
+  elementPreset,
+  makeTemplate,
+  instantiateTemplate,
+  duplicateElement,
+  type ElementTemplate,
   type Project,
   type Element,
   type Asset,
 } from './core';
 import { cloud, publish, saveDraft, uploadMedia } from './cloud';
 import { tr, type Language } from './i18n';
+import { importSvg } from './svgImport';
+import { loadElementTemplates, saveElementTemplate, removeElementTemplate } from './templates';
+import { TemplateGallery } from './TemplateGallery';
 export function Editor({
   initial,
   language,
@@ -62,6 +74,19 @@ export function Editor({
     [error, setError] = useState(''),
     [share, setShare] = useState(''),
     [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(''),
+    [pageDeletion, setPageDeletion] = useState(false);
+  const [gallery, setGallery] = useState<{ kind: Element['kind']; replace: boolean }>(),
+    [personalTemplates, setPersonalTemplates] = useState<ElementTemplate[]>([]);
+  const [savingTemplate, setSavingTemplate] = useState(false),
+    [templateName, setTemplateName] = useState('');
+  const artInput = useRef<HTMLInputElement>(null),
+    voiceInput = useRef<HTMLInputElement>(null),
+    sfxInput = useRef<HTMLInputElement>(null),
+    musicInput = useRef<HTMLInputElement>(null),
+    elementSvgInput = useRef<HTMLInputElement>(null),
+    imageInput = useRef<HTMLInputElement>(null),
+    videoInput = useRef<HTMLInputElement>(null);
   const input = useRef<HTMLInputElement>(null),
     pageInput = useRef<HTMLInputElement>(null),
     revision = useRef(0);
@@ -77,24 +102,42 @@ export function Editor({
   function updatePage(fn: (copy: typeof page) => void) {
     update((p) => fn(p.chapters[chapterIndex].pages[pageIndex]));
   }
+  function commitPage(next: typeof page) {
+    update((p) => {
+      p.chapters[chapterIndex].pages[pageIndex] = next;
+    });
+  }
   function updateElement(values: Partial<Element>) {
-    if (element)
-      updatePage((p) => {
-        const target = p.elements.find((e) => e.id === element.id);
-        if (target) Object.assign(target, values);
-      });
+    if (element) commitPage(changeElement(page, { ...element, ...values }));
+  }
+  function selectElement(id: string) {
+    setSelected(id);
+    const e = page.elements.find((item) => item.id === id);
+    const index = page.moments.findIndex((m) => m.show.includes(id) || m.anchorId === id);
+    const parentIndex = e?.parentId
+      ? page.moments.findIndex((m) => m.show.includes(e.parentId!))
+      : -1;
+    if (index >= 0) setMomentIndex(index);
+    else if (parentIndex >= 0) setMomentIndex(parentIndex);
   }
   function removeSelected() {
     if (!element || busy || preview || settings || templates || share) return;
-    updatePage((p) => {
-      p.elements = p.elements.filter((e) => e.id !== element.id);
-      p.moments.forEach((m) => {
-        m.show = m.show.filter((id) => id !== element.id);
-        m.hide = m.hide.filter((id) => id !== element.id);
-      });
-    });
+    const next = removeElement(page, element.id);
+    commitPage(next);
+    setMomentIndex((i) => Math.min(i, next.moments.length - 1));
     setSelected(undefined);
   }
+  useEffect(() => {
+    let cancelled = false;
+    void loadElementTemplates(ownerId)
+      .then((models) => {
+        if (!cancelled) setPersonalTemplates(models);
+      })
+      .catch((e) => setError(e.message));
+    return () => {
+      cancelled = true;
+    };
+  }, [ownerId]);
   useEffect(() => {
     const token = ++revision.current;
     setStatus(ownerId ? 'saving' : 'local');
@@ -118,7 +161,17 @@ export function Editor({
     function key(e: KeyboardEvent) {
       if ((e.target as HTMLElement).closest('input,textarea,select,[contenteditable="true"]'))
         return;
-      if (busy || preview || settings || templates || share) return;
+      if (
+        busy ||
+        preview ||
+        settings ||
+        templates ||
+        share ||
+        gallery ||
+        pageDeletion ||
+        savingTemplate
+      )
+        return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && element) {
         e.preventDefault();
         removeSelected();
@@ -131,7 +184,20 @@ export function Editor({
     }
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
-  }, [undo, redo, element, project, busy, preview, settings, templates, share]);
+  }, [
+    undo,
+    redo,
+    element,
+    project,
+    busy,
+    preview,
+    settings,
+    templates,
+    share,
+    gallery,
+    pageDeletion,
+    savingTemplate,
+  ]);
   async function importFiles(files: FileList | null) {
     if (!files) return;
     setBusy(true);
@@ -156,11 +222,48 @@ export function Editor({
     setBusy(true);
     setError('');
     try {
+      if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)) {
+        const result = importSvg(await file.text());
+        result.page.name = file.name.replace(/\.svg$/i, '');
+        for (const asset of result.assets) {
+          if (ownerId) {
+            const blob = await (await fetch(asset.src)).blob();
+            Object.assign(
+              asset,
+              await uploadMedia(
+                new File([blob], `${asset.id}.${asset.mime.split('/')[1]}`, { type: asset.mime }),
+                project,
+                ownerId,
+              ),
+              { id: asset.id },
+            );
+          }
+        }
+        const copy = snapshot(project);
+        copy.assets.push(...result.assets);
+        const index = page.elements.length ? chapter.pages.length : pageIndex;
+        if (page.elements.length) copy.chapters[chapterIndex].pages.push(result.page);
+        else copy.chapters[chapterIndex].pages[pageIndex] = result.page;
+        commit(copy);
+        setPageIndex(index);
+        setMomentIndex(0);
+        setSelected(
+          result.page.elements.find((e) => e.kind === 'panel')?.id ?? result.page.elements[0]?.id,
+        );
+        setNotice(
+          result.warnings.length
+            ? `${t('svgWarnings')} ${result.warnings.join(', ')}`
+            : t('svgNewPage'),
+        );
+        return;
+      }
       const asset = await uploadMedia(file, project, ownerId);
-      update((p) => {
-        p.assets.push(asset);
-        p.chapters[chapterIndex].pages[pageIndex] = mapPageArtwork(page, asset.id);
-      });
+      const copy = snapshot(project),
+        mapped = mapPageArtwork(page, asset.id);
+      copy.assets.push(asset);
+      copy.chapters[chapterIndex].pages[pageIndex] = mapped;
+      commit(copy);
+      setSelected(mapped.backgroundElementId);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -169,6 +272,14 @@ export function Editor({
     }
   }
   function add(kind: Element['kind'], asset?: Asset) {
+    if (!asset && kind === 'image') {
+      imageInput.current?.click();
+      return;
+    }
+    if (!asset && kind === 'video') {
+      videoInput.current?.click();
+      return;
+    }
     const e = newElement(kind);
     if (asset) {
       e.assetId = asset.id;
@@ -176,6 +287,19 @@ export function Editor({
       if (asset.type === 'video') e.kind = 'video';
     }
     e.name = asset?.name ?? t(kind);
+    const parent =
+      element?.kind === 'panel' || element?.kind === 'group'
+        ? element
+        : element?.parentId
+          ? page.elements.find((item) => item.id === element.parentId)
+          : undefined;
+    if (parent && ['bubble', 'text', 'sfx'].includes(kind)) {
+      e.parentId = parent.id;
+      e.x = parent.x + parent.width * 0.12;
+      e.y = parent.y + parent.height * 0.12;
+      e.width = Math.min(e.width, parent.width * 0.7);
+      e.height = Math.min(e.height, parent.height * 0.45);
+    }
     if (kind === 'panel' && page.backgroundAssetId) {
       e.assetId = page.backgroundAssetId;
       e.pageImage = true;
@@ -186,11 +310,223 @@ export function Editor({
       e.x = 35;
       e.y = 35;
     }
+    const nextMoment = kind === 'panel' ? page.moments.length : momentIndex;
     updatePage((p) => {
       p.elements.push(e);
-      p.moments[momentIndex]?.show.push(e.id);
+      if (kind === 'panel')
+        p.moments.push({
+          id: uid(),
+          label: e.name,
+          show: [e.id],
+          hide: [],
+          transition: 'fade',
+          duration: 400,
+          anchorId: e.id,
+        });
+      else p.moments[momentIndex]?.show.push(e.id);
     });
+    setMomentIndex(nextMoment);
     setSelected(e.id);
+  }
+  async function importInto(
+    file: File | undefined,
+    mode: 'art' | 'voice' | 'sfx' | 'music' | 'image' | 'video',
+  ) {
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    try {
+      const asset = await uploadMedia(file, project, ownerId),
+        copy = snapshot(project);
+      copy.assets.push(asset);
+      const p = copy.chapters[chapterIndex].pages[pageIndex];
+      if (mode === 'art' && element) {
+        const target = p.elements.find((e) => e.id === element.id)!;
+        target.assetId = asset.id;
+        target.pageImage = false;
+      } else if (mode === 'image' || mode === 'video') {
+        const e = { ...newElement(mode), name: asset.name, assetId: asset.id };
+        if (mode === 'image') {
+          e.width = Math.min(600, p.width * 0.8);
+          e.height = Math.min(500, p.height * 0.6);
+        }
+        p.elements.push(e);
+        p.moments[momentIndex].show.push(e.id);
+        setSelected(e.id);
+      } else if (['voice', 'sfx', 'music'].includes(mode)) {
+        const m = p.moments[momentIndex];
+        if (element) m.anchorId = element.id;
+        if (mode === 'voice') m.voiceId = asset.id;
+        if (mode === 'sfx') m.sfxId = asset.id;
+        if (mode === 'music') {
+          m.musicId = asset.id;
+          m.stopMusic = false;
+        }
+      }
+      commit(copy);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+      for (const ref of [artInput, voiceInput, sfxInput, musicInput, imageInput, videoInput])
+        if (ref.current) ref.current.value = '';
+    }
+  }
+  async function importElementSvg(file?: File) {
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = importSvg(await file.text()),
+        copy = snapshot(project),
+        p = copy.chapters[chapterIndex].pages[pageIndex];
+      for (const asset of result.assets) {
+        if (ownerId) {
+          const id = asset.id,
+            blob = await (await fetch(asset.src)).blob();
+          Object.assign(
+            asset,
+            await uploadMedia(
+              new File([blob], `${id}.${asset.mime.split('/')[1]}`, { type: asset.mime }),
+              copy,
+              ownerId,
+            ),
+            { id },
+          );
+        }
+        copy.assets.push(asset);
+      }
+      if (result.page.elements.length === 1 && element) {
+        const source = result.page.elements[0];
+        p.elements = p.elements.map((e) =>
+          e.id === element.id
+            ? {
+                ...e,
+                points: source.points,
+                pathD: source.pathD,
+                fill: source.fill,
+                stroke: source.stroke,
+                strokeWidth: source.strokeWidth,
+                assetId: source.assetId ?? e.assetId,
+              }
+            : e,
+        );
+      } else {
+        const scale =
+          Math.min(page.width / result.page.width, page.height / result.page.height) * 0.8;
+        const start = p.elements.length;
+        result.page.elements.forEach((e) =>
+          p.elements.push({
+            ...e,
+            x: e.x * scale,
+            y: e.y * scale,
+            width: e.width * scale,
+            height: e.height * scale,
+          }),
+        );
+        p.moments.push(...result.page.moments);
+        setSelected(p.elements[start].id);
+        setMomentIndex(p.moments.length - result.page.moments.length);
+      }
+      commit(copy);
+      if (result.warnings.length) setNotice(`${t('svgWarnings')} ${result.warnings.join(', ')}`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+      if (elementSvgInput.current) elementSvgInput.current.value = '';
+    }
+  }
+  function usePreset(source: Element) {
+    if (gallery?.replace && element) {
+      updateElement({
+        points: source.points,
+        pathD: source.pathD,
+        fill: source.fill,
+        stroke: source.stroke,
+        strokeWidth: source.strokeWidth,
+        fontSize: source.fontSize,
+        textColor: source.textColor,
+      });
+    } else {
+      const e = {
+        ...source,
+        id: uid(),
+        name: source.name === source.kind ? t(source.kind) : source.name,
+      };
+      const parent =
+        element?.kind === 'panel'
+          ? element
+          : element?.parentId
+            ? page.elements.find((p) => p.id === element.parentId)
+            : undefined;
+      if (parent && ['bubble', 'text', 'sfx'].includes(e.kind)) {
+        e.parentId = parent.id;
+        e.x = parent.x + 20;
+        e.y = parent.y + 20;
+      }
+      const index = e.kind === 'panel' ? page.moments.length : momentIndex;
+      updatePage((p) => {
+        p.elements.push(e);
+        if (e.kind === 'panel')
+          p.moments.push({
+            id: uid(),
+            label: e.name,
+            show: [e.id],
+            hide: [],
+            transition: 'fade',
+            duration: 400,
+            anchorId: e.id,
+          });
+        else p.moments[index].show.push(e.id);
+      });
+      setMomentIndex(index);
+      setSelected(e.id);
+    }
+    setGallery(undefined);
+  }
+  async function savePreset() {
+    if (!element || !templateName.trim()) return;
+    setBusy(true);
+    try {
+      const model = makeTemplate(element, templateName.trim());
+      await saveElementTemplate(model, ownerId);
+      setPersonalTemplates((models) => [...models, model]);
+      setSavingTemplate(false);
+      setNotice(t('templateSaved'));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  function separateReveal() {
+    if (!element || element.editorOnly) return;
+    const index = page.moments.length;
+    updatePage((p) => {
+      const prior = p.moments.find((m) => m.anchorId === element.id);
+      p.moments.forEach((m) => {
+        m.show = m.show.filter((id) => id !== element.id);
+      });
+      p.moments.push({
+        id: uid(),
+        label: element.name,
+        show: [element.id],
+        hide: [],
+        transition: 'fade',
+        duration: 400,
+        anchorId: element.id,
+        voiceId: prior?.voiceId,
+        sfxId: prior?.sfxId,
+        musicId: prior?.musicId,
+      });
+      if (prior) {
+        delete prior.voiceId;
+        delete prior.sfxId;
+        delete prior.musicId;
+      }
+    });
+    setMomentIndex(index);
   }
   async function doPublish() {
     if (!ownerId) {
@@ -214,14 +550,14 @@ export function Editor({
     label: string,
     value: string | undefined,
     change: (id: string) => void,
-    type?: Asset['type'],
+    type?: Asset['type'] | 'visual',
   ) => (
     <label>
       {label}
       <select value={value ?? ''} onChange={(e) => change(e.target.value)}>
         <option value="">{t('none')}</option>
         {project.assets
-          .filter((a) => !type || a.type === type)
+          .filter((a) => !type || (type === 'visual' ? a.type !== 'audio' : a.type === type))
           .map((a) => (
             <option value={a.id} key={a.id}>
               {a.name}
@@ -283,7 +619,69 @@ export function Editor({
           <button onClick={() => setError('')}>×</button>
         </div>
       )}
-      <div className="studio-body">
+      {notice && (
+        <div className="notice" role="status">
+          {notice}
+          <button onClick={() => setNotice('')}>×</button>
+        </div>
+      )}
+      <input
+        ref={artInput}
+        data-import="art"
+        type="file"
+        hidden
+        accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"
+        onChange={(e) => void importInto(e.target.files?.[0], 'art')}
+      />
+      <input
+        ref={imageInput}
+        data-import="image"
+        type="file"
+        hidden
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        onChange={(e) => void importInto(e.target.files?.[0], 'image')}
+      />
+      <input
+        ref={videoInput}
+        data-import="video"
+        type="file"
+        hidden
+        accept="video/mp4,video/webm,image/gif"
+        onChange={(e) => void importInto(e.target.files?.[0], 'video')}
+      />
+      <input
+        ref={voiceInput}
+        data-import="voice"
+        type="file"
+        hidden
+        accept="audio/*"
+        onChange={(e) => void importInto(e.target.files?.[0], 'voice')}
+      />
+      <input
+        ref={sfxInput}
+        data-import="sfx"
+        type="file"
+        hidden
+        accept="audio/*"
+        onChange={(e) => void importInto(e.target.files?.[0], 'sfx')}
+      />
+      <input
+        ref={musicInput}
+        data-import="music"
+        type="file"
+        hidden
+        accept="audio/*"
+        onChange={(e) => void importInto(e.target.files?.[0], 'music')}
+      />
+      <input
+        ref={elementSvgInput}
+        data-import="element-svg"
+        type="file"
+        hidden
+        accept="image/svg+xml,.svg"
+        onChange={(e) => void importElementSvg(e.target.files?.[0])}
+      />
+      <div className="studio-body" inert={busy}>
         <aside className="left-sidebar">
           <div className="sidebar-tabs">
             {(['pages', 'materials', 'layers'] as const).map((key) => (
@@ -359,6 +757,15 @@ export function Editor({
                   </button>
                 ))}
               </div>
+              {page.backgroundElementId && (
+                <button onClick={() => selectElement(page.backgroundElementId!)}>
+                  {t('pageArtwork')}
+                </button>
+              )}
+              <button onClick={() => setPageDeletion(true)}>
+                <Trash2 size={14} />
+                {t('deletePage')}
+              </button>
               <button
                 className="dashed-button"
                 onClick={() => {
@@ -375,11 +782,15 @@ export function Editor({
                 <Upload size={14} />
                 {t('importPage')}
               </button>
+              <button disabled={busy} onClick={() => pageInput.current?.click()}>
+                {t('importSvg')}
+              </button>
               <input
                 ref={pageInput}
+                data-import="page"
                 type="file"
                 hidden
-                accept="image/png,image/jpeg,image/webp"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
                 onChange={(e) => void importPage(e.target.files?.[0])}
               />
             </>
@@ -410,7 +821,8 @@ export function Editor({
                     className="asset-card"
                     onClick={() => {
                       if (a.type === 'audio') return;
-                      if (element) updateElement({ assetId: a.id });
+                      if (element && ['panel', 'image', 'video', 'vector'].includes(element.kind))
+                        updateElement({ assetId: a.id, pageImage: false });
                       else add(a.type === 'video' ? 'video' : 'image', a);
                     }}
                     title={a.name}
@@ -436,8 +848,9 @@ export function Editor({
               </div>
               {page.elements.map((e, i) => (
                 <div className={`layer-row ${e.id === selected ? 'active' : ''}`} key={e.id}>
-                  <button onClick={() => setSelected(e.id)}>
+                  <button onClick={() => selectElement(e.id)}>
                     <span>{String(i + 1).padStart(2, '0')}</span>
+                    {e.parentId ? '↳ ' : ''}
                     {e.name}
                   </button>
                   <button
@@ -479,6 +892,9 @@ export function Editor({
                   {t(kind)}
                 </button>
               ))}
+              <button onClick={() => setGallery({ kind: 'panel', replace: false })}>
+                {t('modelLibrary')}
+              </button>
             </div>
             <span>
               {page.width} × {page.height}
@@ -493,12 +909,8 @@ export function Editor({
                 page={page}
                 assets={project.assets}
                 selected={selected}
-                onSelect={setSelected}
-                onChange={(e) =>
-                  updatePage((p) => {
-                    p.elements = p.elements.map((item) => (item.id === e.id ? e : item));
-                  })
-                }
+                onSelect={selectElement}
+                onChange={(e) => commitPage(changeElement(page, e))}
               />
             </div>
           </div>
@@ -549,6 +961,132 @@ export function Editor({
           {element ? (
             <div className="property-section">
               <div className="section-label">{t(element.kind)}</div>
+              <label>
+                {t('kind')}
+                <select
+                  value={element.kind}
+                  onChange={(e) => updateElement({ kind: e.target.value as Element['kind'] })}
+                >
+                  {(
+                    ['panel', 'bubble', 'text', 'sfx', 'vector', 'image', 'video', 'group'] as const
+                  ).map((kind) => (
+                    <option key={kind} value={kind}>
+                      {t(kind)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {!element.editorOnly && (
+                <label>
+                  {t('parentPanel')}
+                  <select
+                    value={element.parentId ?? ''}
+                    onChange={(e) => updateElement({ parentId: e.target.value || undefined })}
+                  >
+                    <option value="">{t('unlinked')}</option>
+                    {page.elements
+                      .filter(
+                        (e) =>
+                          ['panel', 'group'].includes(e.kind) &&
+                          e.id !== element.id &&
+                          !descendants(page.elements, element.id).has(e.id),
+                      )
+                      .map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
+              {['panel', 'bubble', 'text', 'sfx', 'vector'].includes(element.kind) && (
+                <div className="element-actions">
+                  <button onClick={() => setGallery({ kind: element.kind, replace: true })}>
+                    {t('chooseShape')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTemplateName(element.name);
+                      setSavingTemplate(true);
+                    }}
+                  >
+                    {t('saveModel')}
+                  </button>
+                  <button onClick={() => elementSvgInput.current?.click()}>
+                    <Upload size={13} />
+                    {t('importElement')}
+                  </button>
+                </div>
+              )}
+              {element.kind === 'panel' && (
+                <section className="context-card">
+                  <div className="section-label">{t('panelContent')}</div>
+                  <button className="primary full" onClick={() => artInput.current?.click()}>
+                    <Upload size={14} />
+                    {t('importArt')}
+                  </button>
+                  <p>{t('frameHint')}</p>
+                  <div className="element-actions">
+                    <button onClick={() => add('bubble')}>{t('bubbleInPanel')}</button>
+                    <button onClick={() => add('text')}>{t('textInPanel')}</button>
+                    <button onClick={() => add('sfx')}>{t('sfxInPanel')}</button>
+                  </div>
+                  {page.elements
+                    .filter((child) => child.parentId === element.id)
+                    .map((child) => (
+                      <button
+                        className="linked-child"
+                        key={child.id}
+                        onClick={() => selectElement(child.id)}
+                      >
+                        ↳ {child.name}
+                      </button>
+                    ))}
+                </section>
+              )}
+              {!element.editorOnly && (
+                <button className="separate-reveal" onClick={separateReveal}>
+                  {t('separateReveal')}
+                </button>
+              )}
+              {!element.editorOnly && (
+                <section className="context-card">
+                  <div className="section-label">{t('panelAudio')}</div>
+                  <strong>
+                    {element.name} · {String(momentIndex + 1).padStart(2, '0')}
+                  </strong>
+                  <p>{t('audioHint')}</p>
+                  <div className="audio-import-actions">
+                    <button onClick={() => voiceInput.current?.click()}>
+                      <Upload size={13} />
+                      {t('importVoice')}
+                    </button>
+                    <button onClick={() => sfxInput.current?.click()}>
+                      <Upload size={13} />
+                      {t('importSfx')}
+                    </button>
+                    <button onClick={() => musicInput.current?.click()}>
+                      <Upload size={13} />
+                      {t('importMusic')}
+                    </button>
+                  </div>
+                  {moment.voiceId && (
+                    <small>
+                      {t('voice')}: {project.assets.find((a) => a.id === moment.voiceId)?.name}
+                    </small>
+                  )}
+                  {moment.sfxId && (
+                    <small>
+                      {t('sound')}: {project.assets.find((a) => a.id === moment.sfxId)?.name}
+                    </small>
+                  )}
+                  {moment.musicId && (
+                    <small>
+                      {t('music')}: {project.assets.find((a) => a.id === moment.musicId)?.name}
+                    </small>
+                  )}
+                </section>
+              )}
               <label>
                 {t('name')}
                 <input
@@ -606,7 +1144,7 @@ export function Editor({
                   {t('fill')}
                   <input
                     type="color"
-                    value={element.fill}
+                    value={/^#[\da-f]{6}$/i.test(element.fill) ? element.fill : '#ffffff'}
                     onChange={(e) => updateElement({ fill: e.target.value })}
                   />
                 </label>
@@ -614,7 +1152,7 @@ export function Editor({
                   {t('stroke')}
                   <input
                     type="color"
-                    value={element.stroke}
+                    value={/^#[\da-f]{6}$/i.test(element.stroke) ? element.stroke : '#222521'}
                     onChange={(e) => updateElement({ stroke: e.target.value })}
                   />
                 </label>
@@ -629,11 +1167,20 @@ export function Editor({
                   onChange={(e) => updateElement({ strokeWidth: Math.max(0, +e.target.value) })}
                 />
               </label>
-              {['panel', 'image', 'video'].includes(element.kind) && (
+              {['panel', 'image', 'video', 'vector'].includes(element.kind) && (
                 <>
                   <div className="section-label">{t('crop')}</div>
-                  {mediaSelect(t('media'), element.assetId, (id) =>
-                    updateElement({ assetId: id, pageImage: false }),
+                  {element.kind !== 'panel' && (
+                    <button className="primary full" onClick={() => artInput.current?.click()}>
+                      <Upload size={14} />
+                      {t('importImage')}
+                    </button>
+                  )}
+                  {mediaSelect(
+                    t('media'),
+                    element.assetId,
+                    (id) => updateElement({ assetId: id, pageImage: false }),
+                    'visual',
                   )}
                   <label>
                     {t('scale')}
@@ -680,7 +1227,24 @@ export function Editor({
                   </label>
                 </>
               )}
-              {element.kind === 'panel' && (
+              {element.pathD && (
+                <label>
+                  {t('pathData')}
+                  <textarea
+                    value={element.pathD}
+                    onChange={(e) => updateElement({ pathD: e.target.value.slice(0, 100000) })}
+                  />
+                </label>
+              )}
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={element.fill === 'none'}
+                  onChange={(e) => updateElement({ fill: e.target.checked ? 'none' : '#ffffff' })}
+                />
+                {t('noFill')}
+              </label>
+              {element.kind === 'panel' && !element.pathD && (
                 <>
                   <div className="section-label">{t('vertices')}</div>
                   {element.points.map((point, i) => (
@@ -724,16 +1288,8 @@ export function Editor({
                 <button
                   aria-label={t('duplicate')}
                   onClick={() => {
-                    const copy = {
-                      ...structuredClone(element),
-                      id: uid(),
-                      x: element.x + 20,
-                      y: element.y + 20,
-                    };
-                    updatePage((p) => {
-                      p.elements.push(copy);
-                      p.moments[momentIndex].show.push(copy.id);
-                    });
+                    const copy = duplicateElement(page, element.id);
+                    commitPage(copy.page);
                     setSelected(copy.id);
                   }}
                 >
@@ -748,6 +1304,15 @@ export function Editor({
             <p className="sidebar-note">{t('selectedHint')}</p>
           )}
           <div className="property-section moment-properties">
+            {element && !element.editorOnly && (
+              <div className="context-card">
+                <div className="section-label">{t('panelAudio')}</div>
+                <strong>
+                  {element.name} · {String(momentIndex + 1).padStart(2, '0')}
+                </strong>
+                <p>{t('audioHint')}</p>
+              </div>
+            )}
             <div className="section-label">
               {String(momentIndex + 1).padStart(2, '0')} · {t('moments')}
             </div>
@@ -812,6 +1377,22 @@ export function Editor({
                 </div>
               ))}
             </details>
+            {!element && (
+              <div className="audio-import-actions">
+                <button onClick={() => voiceInput.current?.click()}>
+                  <Upload size={13} />
+                  {t('importVoice')}
+                </button>
+                <button onClick={() => sfxInput.current?.click()}>
+                  <Upload size={13} />
+                  {t('importSfx')}
+                </button>
+                <button onClick={() => musicInput.current?.click()}>
+                  <Upload size={13} />
+                  {t('importMusic')}
+                </button>
+              </div>
+            )}
             {mediaSelect(
               t('voice'),
               moment.voiceId,
@@ -879,7 +1460,83 @@ export function Editor({
         </aside>
       </div>
       {preview && (
-        <Reader project={project} language={language} onClose={() => setPreview(false)} />
+        <Reader
+          project={project}
+          initialChapter={chapterIndex}
+          initialPage={pageIndex}
+          language={language}
+          onClose={() => setPreview(false)}
+        />
+      )}
+      {gallery && (
+        <TemplateGallery
+          language={language}
+          kind={gallery.kind}
+          templates={personalTemplates}
+          onClose={() => setGallery(undefined)}
+          onApply={usePreset}
+          onDelete={(id) => {
+            void removeElementTemplate(id, ownerId)
+              .then(() => setPersonalTemplates((models) => models.filter((m) => m.id !== id)))
+              .catch((e) => setError(e.message));
+          }}
+        />
+      )}
+      {savingTemplate && (
+        <div className="modal-backdrop">
+          <section className="modal" role="dialog" aria-modal="true">
+            <header>
+              <h2>{t('saveModel')}</h2>
+              <button
+                disabled={busy}
+                aria-label={t('close')}
+                onClick={() => setSavingTemplate(false)}
+              >
+                ×
+              </button>
+            </header>
+            <label>
+              {t('modelName')}
+              <input value={templateName} onChange={(e) => setTemplateName(e.target.value)} />
+            </label>
+            <button
+              className="primary"
+              disabled={busy || !templateName.trim()}
+              onClick={() => void savePreset()}
+            >
+              {t('save')}
+            </button>
+            {error && <p className="error-text">{error}</p>}
+          </section>
+        </div>
+      )}
+      {pageDeletion && (
+        <div className="modal-backdrop">
+          <section className="modal" role="dialog" aria-modal="true">
+            <header>
+              <h2>
+                {t('deletePage')} {pageIndex + 1}
+              </h2>
+            </header>
+            <p>{t('deletePageHint')}</p>
+            <div className="button-row">
+              <button onClick={() => setPageDeletion(false)}>{t('cancel')}</button>
+              <button
+                className="danger-button"
+                onClick={() => {
+                  const copy = deletePage(project, chapterIndex, pageIndex);
+                  commit(copy);
+                  setPageIndex((i) => Math.min(i, copy.chapters[chapterIndex].pages.length - 1));
+                  setMomentIndex(0);
+                  setSelected(undefined);
+                  setPageDeletion(false);
+                }}
+              >
+                {t('removePage')}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
       {settings && (
         <div className="modal-backdrop">

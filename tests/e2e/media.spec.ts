@@ -23,7 +23,7 @@ test('finished-page import maps artwork to frames and remains available after re
     'base64',
   );
   await page
-    .locator('input[type=file]')
+    .locator('input[data-import="page"]')
     .setInputFiles({ name: 'page.png', mimeType: 'image/png', buffer: png });
   await expect(page.locator('.editor-paper image')).toHaveCount(5);
   await page.getByRole('button', { name: 'Voltar', exact: true }).click();

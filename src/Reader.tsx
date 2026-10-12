@@ -16,16 +16,18 @@ export function Reader({
   language,
   onClose,
   initialChapter = 0,
+  initialPage = 0,
 }: {
   project: Project;
   language: Language;
   onClose: () => void;
   initialChapter?: number;
+  initialPage?: number;
 }) {
   const t = (key: Parameters<typeof tr>[1]) => tr(language, key);
   const [accepted, setAccepted] = useState(!project.adult);
   const [chapter, setChapter] = useState(initialChapter),
-    [pageIndex, setPageIndex] = useState(0);
+    [pageIndex, setPageIndex] = useState(initialPage);
   const [state, setState] = useState<Playback>(initialPlayback),
     [zoom, setZoom] = useState(1);
   const [reduced, setReduced] = useState(
@@ -235,7 +237,7 @@ export function Reader({
           <Canvas
             page={page}
             assets={project.assets}
-            visible={visibleIds(page.moments, state.index)}
+            visible={visibleIds(page.moments, state.index, page.elements)}
             animated={state.transitioning ? new Set(moment?.show) : undefined}
             transition={moment?.transition}
             duration={moment?.duration}

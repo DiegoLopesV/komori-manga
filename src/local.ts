@@ -1,4 +1,4 @@
-import type { Project } from './core';
+import { normalizeProject, type Project } from './core';
 let connection: Promise<IDBDatabase> | undefined;
 function db() {
   return (connection ??= new Promise<IDBDatabase>((resolve, reject) => {
@@ -21,7 +21,7 @@ export async function localWorks() {
   const database = await db();
   return new Promise<Project[]>((resolve, reject) => {
     const request = database.transaction('drafts').objectStore('drafts').getAll();
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(request.result.map((p: Project) => normalizeProject(p)));
     request.onerror = () => reject(request.error);
   });
 }
