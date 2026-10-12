@@ -64,12 +64,22 @@ try {
       .definition.name,
     'Quadro SVG pessoal',
   );
-  await page.getByRole('button', { name: 'Balão neste quadro', exact: true }).click();
+  await page.getByRole('button', { name: 'Balão', exact: true }).click();
   await page.getByRole('textbox', { name: 'Texto', exact: true }).fill('Fala do quadro.');
   await page.locator('.right-sidebar summary').filter({ hasText: 'Áudio' }).click();
   await page
     .getByRole('combobox', { name: 'Falas', exact: true })
     .selectOption({ label: 'chime.wav' });
+  await page.getByRole('button', { name: 'Balão', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Texto', exact: true }).fill('Segunda fala do quadro.');
+  await page
+    .getByRole('combobox', { name: 'Falas', exact: true })
+    .selectOption({ label: 'chime.wav' });
+  await page.getByRole('button', { name: 'Ordem, volume e disparo', exact: true }).click();
+  await page.getByRole('button', { name: 'Subir fala Balão 2', exact: true }).click();
+  await page.getByLabel('Volume Balão 2', { exact: true }).press('Home');
+  for (let i = 0; i < 8; i++)
+    await page.getByLabel('Volume Balão 2', { exact: true }).press('ArrowRight');
   await page.getByRole('button', { name: 'Publicar capítulo atual', exact: true }).click();
   await page.getByText('Publicação pronta', { exact: true }).waitFor({ timeout: 30000 });
   const link = await page.getByLabel('Compartilhar obra').inputValue(),
@@ -81,18 +91,26 @@ try {
       .snapshot;
   assert.equal(snapshot.chapters[0].pages[0].elements.filter((e) => e.kind === 'panel').length, 4);
   assert.ok(snapshot.chapters[0].pages[0].elements.find((e) => e.kind === 'bubble').parentId);
-  assert.ok(snapshot.chapters[0].pages[0].elements.find((e) => e.kind === 'bubble').voiceId);
+  const speech = snapshot.chapters[0].pages[0].elements.filter((e) => e.kind === 'bubble');
+  assert.equal(speech.length, 2);
+  assert.equal(speech[0].voiceId, speech[1].voiceId);
+  assert.equal(speech.find((e) => e.name === 'Balão 2').audioOrder, 1);
+  assert.equal(speech.find((e) => e.name === 'Balão 2').audioVolume, 0.4);
   const readerContext = await browser.newContext({ viewport: { width: 390, height: 844 } }),
     reader = await readerContext.newPage();
   await reader.goto(link);
   await reader.getByRole('button', { name: 'Leitor', exact: true }).click();
-  await reader.locator('.reader-page .canvas-text').waitFor();
-  assert.equal(await reader.locator('.reader-page .canvas-text').innerText(), 'Fala do quadro.');
+  await reader.locator('.reader-page .canvas-text').first().waitFor();
+  assert.deepEqual(await reader.locator('.reader-page .canvas-text').allTextContents(), [
+    'Fala do quadro.',
+    'Segunda fala do quadro.',
+  ]);
+  await reader.getByRole('button', { name: 'Avançar', exact: true }).click();
   assert.equal(failures.length, 0);
   mkdirSync('test-results', { recursive: true });
   await reader.screenshot({ path: 'test-results/svg-public-reader.png' });
   console.log(
-    'PASS: SVG → native panels → art/voice uploads → linked bubble → private cloud preset → anonymous published reader',
+    'PASS: SVG → native panels → art/voice uploads → ordered speech/volume → private cloud preset → anonymous published reader',
   );
 } finally {
   await browser?.close();

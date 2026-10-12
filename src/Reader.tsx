@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, X, Volume2, RotateCcw, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X, Volume2, RotateCcw, Minus, Plus, Play } from 'lucide-react';
 import {
   advance,
   back,
   initialPlayback,
-  visibleIds,
+  readerVisibleIds,
   musicAt,
-  momentAudioIds,
+  momentAudioCues,
+  musicVolumeAt,
   type Project,
   type Playback,
 } from './core';
 import { Canvas } from './Canvas';
+import { startAudioSequence, type AudioLike } from './audioDirection';
 import { tr, type Language } from './i18n';
 export function Reader({
   project,
@@ -18,18 +20,29 @@ export function Reader({
   onClose,
   initialChapter = 0,
   initialPage = 0,
+  initialMoment = 0,
 }: {
   project: Project;
   language: Language;
   onClose: () => void;
   initialChapter?: number;
   initialPage?: number;
+  initialMoment?: number;
 }) {
   const t = (key: Parameters<typeof tr>[1]) => tr(language, key);
   const [accepted, setAccepted] = useState(!project.adult);
   const [chapter, setChapter] = useState(initialChapter),
     [pageIndex, setPageIndex] = useState(initialPage);
-  const [state, setState] = useState<Playback>(initialPlayback),
+  const [state, setState] = useState<Playback>(() => ({
+      ...initialPlayback(),
+      index: Math.max(
+        0,
+        Math.min(
+          initialMoment,
+          project.chapters[initialChapter].pages[initialPage].moments.length - 1,
+        ),
+      ),
+    })),
     [zoom, setZoom] = useState(1);
   const [reduced, setReduced] = useState(
     () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
@@ -38,35 +51,34 @@ export function Reader({
     [volumes, setVolumes] = useState({ voice: 0.8, sfx: 0.8, music: 0.3 });
   const [started, setStarted] = useState(false);
   const tracks = useRef<{
-    voice?: HTMLAudioElement[];
-    sfx?: HTMLAudioElement[];
+    sequence?: ReturnType<typeof startAudioSequence>;
     music?: HTMLAudioElement;
     musicId?: string;
+    musicGain?: number;
     activated?: boolean;
   }>({});
   const currentChapter = project.chapters[chapter],
     page = currentChapter.pages[pageIndex],
     moment = page.moments[state.index];
   const stop = useCallback(() => {
-    tracks.current.voice?.forEach((a) => a.pause());
-    tracks.current.sfx?.forEach((a) => a.pause());
+    tracks.current.sequence?.stop();
+    tracks.current.sequence = undefined;
   }, []);
-  const playMoment = useCallback(() => {
-    stop();
-    if (muted || !moment) return;
-    for (const kind of ['voice', 'sfx'] as const) {
-      tracks.current[kind] = [];
-      for (const id of momentAudioIds(page, state.index, kind)) {
-        const asset = project.assets.find((a) => a.id === id);
-        if (asset?.src) {
-          const audio = new Audio(asset.src);
-          audio.volume = volumes[kind];
-          tracks.current[kind]!.push(audio);
-          void audio.play().catch(() => {});
-        }
-      }
-    }
-  }, [moment, page, state.index, muted, project.assets, stop, volumes]);
+  const playMoment = useCallback(
+    (finishTransition = false) => {
+      stop();
+      if (muted || !moment) return;
+      tracks.current.sequence = startAudioSequence(
+        momentAudioCues(page, state.index, reduced || finishTransition),
+        (id) => {
+          const asset = project.assets.find((a) => a.id === id);
+          return asset?.src ? (new Audio(asset.src) as unknown as AudioLike) : undefined;
+        },
+        volumes,
+      );
+    },
+    [moment, page, state.index, state.transitioning, reduced, muted, project.assets, stop, volumes],
+  );
   const previousMoments = project.chapters.flatMap((c, ci) =>
     ci < chapter
       ? c.pages.flatMap((p) => p.moments)
@@ -78,11 +90,16 @@ export function Reader({
     [...previousMoments, ...page.moments],
     previousMoments.length + state.index,
   );
+  const authorMusicVolume = musicVolumeAt(
+    [...previousMoments, ...page.moments],
+    previousMoments.length + state.index,
+  );
   useEffect(() => {
     if (!accepted || !started || muted) {
       tracks.current.music?.pause();
       return;
     }
+    if (!tracks.current.activated || state.playAudio) tracks.current.musicGain = authorMusicVolume;
     if ((!tracks.current.activated || state.playAudio) && tracks.current.musicId !== musicId) {
       tracks.current.music?.pause();
       tracks.current.music = undefined;
@@ -95,19 +112,23 @@ export function Reader({
     }
     tracks.current.activated = true;
     if (tracks.current.music) {
-      tracks.current.music.volume = volumes.music;
+      tracks.current.music.volume = volumes.music * (tracks.current.musicGain ?? authorMusicVolume);
       void tracks.current.music.play().catch(() => {});
     }
-  }, [musicId, state.playAudio, accepted, started, muted, volumes.music, project.assets]);
+  }, [
+    musicId,
+    state.playAudio,
+    accepted,
+    started,
+    muted,
+    volumes.music,
+    authorMusicVolume,
+    project.assets,
+  ]);
   useEffect(() => {
     if (muted) stop();
     else {
-      tracks.current.voice?.forEach((a) => {
-        a.volume = volumes.voice;
-      });
-      tracks.current.sfx?.forEach((a) => {
-        a.volume = volumes.sfx;
-      });
+      tracks.current.sequence?.setLevels(volumes);
     }
   }, [muted, stop, volumes]);
   useEffect(
@@ -118,7 +139,7 @@ export function Reader({
     [stop],
   );
   useEffect(() => {
-    if (!state.transitioning) return;
+    if (!state.transitioning || !started) return;
     if (reduced || !moment?.duration) {
       setState((s) => ({ ...s, transitioning: false }));
       return;
@@ -128,16 +149,20 @@ export function Reader({
       moment.duration,
     );
     return () => clearTimeout(timer);
-  }, [state.index, state.transitioning, moment?.duration, reduced]);
+  }, [state.index, state.transitioning, moment?.duration, reduced, started]);
   const next = useCallback(() => {
     if (!accepted) return;
     setStarted(true);
-    if (!started && state.transitioning) {
+    if (!started) {
       playMoment();
-      setState((s) => ({ ...s, transitioning: false }));
+      setState((s) => ({
+        ...s,
+        transitioning: !reduced && moment.transition !== 'none' && moment.duration > 0,
+      }));
       return;
     }
     if (state.transitioning) {
+      tracks.current.sequence?.finishTransition();
       setState(advance(state, page.moments));
       return;
     }
@@ -156,6 +181,8 @@ export function Reader({
   }, [
     accepted,
     started,
+    reduced,
+    moment,
     playMoment,
     state,
     page.moments,
@@ -244,8 +271,8 @@ export function Reader({
           <Canvas
             page={page}
             assets={project.assets}
-            visible={visibleIds(page.moments, state.index, page.elements)}
-            animated={state.transitioning ? new Set(moment?.show) : undefined}
+            visible={readerVisibleIds(page, state.index, state.transitioning && started, reduced)}
+            animated={state.transitioning && started ? new Set(moment?.show) : undefined}
             transition={moment?.transition}
             duration={moment?.duration}
             reduced={reduced}
@@ -260,13 +287,18 @@ export function Reader({
           <span aria-live="polite">
             {state.index + 1} / {page.moments.length}
           </span>
-          <button className="primary" onClick={next} aria-label={t('next')}>
-            <ArrowRight size={18} />
+          <button
+            className="primary"
+            title={t(!started ? 'startReading' : 'next')}
+            onClick={next}
+            aria-label={t('next')}
+          >
+            {!started ? <Play size={18} /> : <ArrowRight size={18} />}
           </button>
           <button
             onClick={() => {
               setStarted(true);
-              playMoment();
+              playMoment(true);
             }}
             aria-label={t('replay')}
           >
@@ -318,7 +350,7 @@ export function Reader({
             ))}
           </div>
         </details>
-        <small>{t('help')}</small>
+        <small>{t(!started ? 'startReading' : 'help')}</small>
       </footer>
     </div>
   );

@@ -11,9 +11,9 @@ Faça a revisão no computador para editar e no celular para ler. Use primeiro �
 - Selecionar um quadro e pressionar Delete/Backspace; conferir remoção e desfazer. Digitar em um balão não deve acionar remoção do elemento.
 - Importar o SVG do gerador Oyasumi e conferir os quatro quadros, dimensões e vértices. Testar “Importar arte neste quadro” diretamente nas propriedades.
 - Selecionar “Editar imagem da página” em uma página PNG, mover/redimensionar/remover a camada. Apagar uma página e desfazer.
-- Vincular balão/texto/onomatopeia a um quadro; mover e redimensionar o quadro para conferir o conjunto. Separar uma revelação quando desejar outra fala.
+- Vincular balão/texto/onomatopeia a um quadro; mover e redimensionar o quadro para conferir o conjunto. Conferir a fila de falas do momento; para uma entrada independente, desvincular o elemento.
 - Escolher formatos e salvar um modelo pessoal; reutilizar em outra obra. Conferir que modelos privados não ficam na publicação nem desaparecem ao apagar a obra original.
-- Importar fala, SFX e música nos controles do elemento; conferir o momento associado e reutilização pelo dropdown.
+- Importar fala, SFX e música em Materiais, nos submenus da esquerda; associar pelo dropdown do elemento e conferir a fila do momento.
 - Conferir se a interface atrapalha a arte em páginas densas. Anotar principalmente tarefas difíceis e controles pouco claros.
 
 ## 2. Direção e experiência de leitura
@@ -51,3 +51,7 @@ Para cada problema, registre: dispositivo/navegador, tarefa, resultado esperado,
 Uma obra curta real será o critério artístico principal para a próxima iteração. Não adicionar novas funções antes de corrigir os bloqueadores encontrados nessa revisão.
 
 Revisão de materiais e vínculos: em Materiais, abrir os submenus de artes e áudios; importar, ouvir, renomear e cancelar/confirmar a remoção de um arquivo de teste. A importação não deve atribuir áudio automaticamente. Conferir seletor de fala apenas no balão, efeito apenas na onomatopeia e música apenas no quadro. Vincular dois quadros e conferir bordas azuis, indicador do conjunto, entrada simultânea e música compartilhada; desvincular e conferir entrada independente.
+
+## Revisão de uso profissional
+
+Siga o roteiro e os achados em [USABILITY-REVIEW.md](USABILITY-REVIEW.md). Inclui falas sequenciais, arquivos repetidos, volume por áudio, disparo de efeitos, lettering temporário, cancelamento ao navegar, bloqueio de arraste e exclusão de momentos com preservação de conteúdo.

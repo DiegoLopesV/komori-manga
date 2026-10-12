@@ -111,11 +111,12 @@ export function Canvas({
                 if (!onChange) return;
                 event.stopPropagation();
                 onSelect?.(e.id);
+                if (e.locked) return;
                 const pos = coordinate(event as unknown as PointerEvent<SVGSVGElement>);
                 drag.current = { id: e.id, x: pos.x, y: pos.y, original: structuredClone(e) };
                 root.current?.setPointerCapture(event.pointerId);
               }}
-              style={{ cursor: onSelect ? 'move' : undefined }}
+              style={{ cursor: onSelect ? (e.locked ? 'default' : 'move') : undefined }}
             >
               <g
                 className={isAnimated ? `reveal-${transition}` : undefined}
@@ -262,7 +263,7 @@ export function Canvas({
               pointerEvents="none"
             />
           ))}
-      {selectedElement && onChange && (
+      {selectedElement && onChange && !selectedElement.locked && (
         <g transform={`translate(${selectedElement.x} ${selectedElement.y})`}>
           <rect
             width={selectedElement.width}

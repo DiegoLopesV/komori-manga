@@ -16,7 +16,7 @@ test('SVG page becomes native frames; artwork and dialogue can be imported direc
     .locator('input[data-import="art"]')
     .setInputFiles({ name: 'art.png', mimeType: 'image/png', buffer: png });
   await expect(page.locator('.editor-paper image')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Balão neste quadro', exact: true }).click();
+  await page.getByRole('button', { name: 'Balão', exact: true }).click();
   await expect(page.getByLabel('Vinculado ao quadro/conjunto')).not.toHaveValue('');
   await page.getByRole('textbox', { name: 'Texto', exact: true }).fill('Uma fala vinculada.');
   await page.getByRole('button', { name: 'Testar leitura' }).click();
@@ -37,7 +37,13 @@ test('imported PNG image is selectable, resizable and removable; pages can be de
   await expect(page.locator('.editor-paper [data-kind="image"]')).toHaveCount(1);
   await page.getByRole('spinbutton', { name: 'Largura', exact: true }).fill('600');
   await expect(page.getByRole('spinbutton', { name: 'Largura', exact: true })).toHaveValue('600');
-  await page.getByRole('button', { name: 'Remover', exact: true }).click();
+  await page.getByRole('button', { name: 'Camadas', exact: true }).click();
+  await page.getByLabel('Ações da camada page.png', { exact: true }).click();
+  await page
+    .locator('.layer-actions')
+    .getByRole('button', { name: 'Remover', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Páginas', exact: true }).click();
   await expect(page.locator('.editor-paper image')).toHaveCount(0);
   await page.getByRole('button', { name: 'Adicionar página', exact: true }).click();
   await expect(page.locator('.page-thumb')).toHaveCount(2);
@@ -87,7 +93,7 @@ test('library audio is assigned by element type and linked balloons follow resiz
   await page
     .getByRole('combobox', { name: 'Música ambiente', exact: true })
     .selectOption({ label: 'ambience.wav' });
-  await page.getByRole('button', { name: 'Balão neste quadro', exact: true }).click();
+  await page.getByRole('button', { name: 'Balão', exact: true }).click();
   await page
     .getByRole('combobox', { name: 'Falas', exact: true })
     .selectOption({ label: 'chime.wav' });
@@ -230,7 +236,7 @@ test('bubble speech and lettering effects play on reveal; library removal clears
   await page.locator('.editor-paper [data-kind="panel"]').first().click();
   await page.locator('input[data-import="voice"]').setInputFiles('public/demo/chime.wav');
   await page.locator('input[data-import="sfx"]').setInputFiles('public/demo/chime.wav');
-  await page.getByRole('button', { name: 'Balão neste quadro', exact: true }).click();
+  await page.getByRole('button', { name: 'Balão', exact: true }).click();
   await page.locator('.right-sidebar summary').filter({ hasText: 'Áudio' }).click();
   await page
     .getByRole('combobox', { name: 'Falas', exact: true })

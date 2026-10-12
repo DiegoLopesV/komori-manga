@@ -8,6 +8,8 @@ test('demo → editor → change title → preview → back → retained draft',
   await page.getByRole('button', { name: 'Fechar', exact: true }).last().click();
   await page.getByRole('button', { name: 'Testar leitura' }).click();
   await page.getByRole('button', { name: 'Avançar', exact: true }).click();
+  await expect(page.getByText('1 / 4')).toBeVisible();
+  await page.getByRole('button', { name: 'Avançar', exact: true }).click();
   await page.getByRole('button', { name: 'Avançar', exact: true }).click();
   await expect(page.getByText('2 / 4')).toBeVisible();
   await page.getByRole('button', { name: 'Voltar', exact: true }).last().click();
@@ -24,7 +26,7 @@ test('new work supports curved frames, editable text, undo and moments', async (
   await page.locator('.right-sidebar summary').filter({ hasText: 'Geometria avançada' }).click();
   await page.getByLabel('Curvatura da borda 1 curve').fill('0.25');
   await expect(page.locator('svg path[d*="C"]')).not.toHaveCount(0);
-  await page.getByRole('button', { name: 'Balão neste quadro', exact: true }).click();
+  await page.getByRole('button', { name: 'Balão', exact: true }).click();
   await page.getByRole('textbox', { name: 'Texto', exact: true }).fill('Olá, mundo!');
   await expect(
     page.locator('.editor-paper .canvas-text').filter({ hasText: 'Olá, mundo!' }),

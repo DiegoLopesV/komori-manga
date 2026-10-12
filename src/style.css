@@ -1599,3 +1599,84 @@ p {
   color: #b42332;
   font-size: 10px;
 }
+
+.cue-row {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 10px;
+  margin: 10px 0;
+  background: #f5f4ee;
+}
+.cue-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+}
+.cue-heading span {
+  display: flex;
+}
+.cue-heading button {
+  font-size: 10px;
+  padding: 6px;
+}
+.cue-row > small {
+  display: block;
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 8px 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.cue-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 9px;
+  font-size: 10px;
+}
+.layer-actions {
+  position: relative;
+}
+.layer-actions summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 5px;
+  font-size: 17px;
+}
+.layer-actions > div {
+  position: absolute;
+  z-index: 5;
+  top: 100%;
+  left: 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 15px #0002;
+  padding: 6px;
+  min-width: 155px;
+}
+.layer-actions button {
+  width: 100%;
+  font-size: 10px;
+  justify-content: flex-start;
+}
+.layer-actions .danger-text {
+  color: #b42332;
+}
+.timeline-add-menu {
+  position: relative;
+  font-size: 10px;
+}
+.timeline-add-menu summary {
+  cursor: pointer;
+  padding: 5px;
+}
+.timeline-add-menu button {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  z-index: 5;
+  width: 180px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}

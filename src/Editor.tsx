@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { Canvas } from './Canvas';
+import { AudioSequence } from './AudioSequence';
 import { Reader } from './Reader';
 import { useHistory } from './useHistory';
 import {
@@ -29,6 +30,8 @@ import {
   changeElement,
   linkElement,
   removeAsset,
+  deleteMoment,
+  audioGain,
   removeElement,
   deletePage,
   descendants,
@@ -78,6 +81,8 @@ export function Editor({
   const [notice, setNotice] = useState(''),
     [pageDeletion, setPageDeletion] = useState(false);
   const [mediaDeletion, setMediaDeletion] = useState<Asset>();
+  const [momentDeletion, setMomentDeletion] = useState(false);
+  const cuePanel = useRef<HTMLDetailsElement>(null);
   const [gallery, setGallery] = useState<{ kind: Element['kind']; replace: boolean }>(),
     [personalTemplates, setPersonalTemplates] = useState<ElementTemplate[]>([]);
   const [savingTemplate, setSavingTemplate] = useState(false),
@@ -181,7 +186,8 @@ export function Editor({
         gallery ||
         pageDeletion ||
         savingTemplate ||
-        mediaDeletion
+        mediaDeletion ||
+        momentDeletion
       )
         return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && element) {
@@ -210,6 +216,7 @@ export function Editor({
     pageDeletion,
     savingTemplate,
     mediaDeletion,
+    momentDeletion,
   ]);
   async function importFiles(files: FileList | null) {
     if (!files) return;
@@ -294,6 +301,11 @@ export function Editor({
       if (asset.type === 'video') e.kind = 'video';
     }
     e.name = asset?.name ?? t(kind);
+    if (['bubble', 'text', 'sfx'].includes(kind)) {
+      let n = 1;
+      while (page.elements.some((item) => item.name === t(kind) + ' ' + n)) n++;
+      e.name = t(kind) + ' ' + n;
+    }
     const parent =
       element?.kind === 'panel' || element?.kind === 'group'
         ? element
@@ -307,6 +319,14 @@ export function Editor({
       e.width = Math.min(e.width, parent.width * 0.7);
       e.height = Math.min(e.height, parent.height * 0.45);
     }
+    if (parent && e.parentId) {
+      const offset =
+        page.elements.filter(
+          (child) => child.parentId === parent.id && ['bubble', 'text', 'sfx'].includes(child.kind),
+        ).length * 24;
+      e.x = Math.min(parent.x + parent.width - e.width - 8, e.x + offset);
+      e.y = Math.min(parent.y + parent.height - e.height - 8, e.y + offset);
+    }
     if (kind === 'panel' && page.backgroundAssetId) {
       e.assetId = page.backgroundAssetId;
       e.pageImage = true;
@@ -317,7 +337,11 @@ export function Editor({
       e.x = 35;
       e.y = 35;
     }
-    const nextMoment = kind === 'panel' ? page.moments.length : momentIndex;
+    const parentMoment = e.parentId
+      ? page.moments.findIndex((m) => m.show.includes(e.parentId!))
+      : -1;
+    const nextMoment =
+      kind === 'panel' ? page.moments.length : parentMoment >= 0 ? parentMoment : momentIndex;
     updatePage((p) => {
       p.elements.push(e);
       if (kind === 'panel')
@@ -330,7 +354,7 @@ export function Editor({
           duration: 400,
           anchorId: e.id,
         });
-      else p.moments[momentIndex]?.show.push(e.id);
+      else p.moments[nextMoment]?.show.push(e.id);
     });
     setMomentIndex(nextMoment);
     setSelected(e.id);
@@ -460,12 +484,29 @@ export function Editor({
           : element?.parentId
             ? page.elements.find((p) => p.id === element.parentId)
             : undefined;
+      if (['bubble', 'text', 'sfx'].includes(e.kind)) {
+        const base = e.name;
+        let number = 1;
+        while (page.elements.some((item) => item.name === base + ' ' + number)) number++;
+        e.name = base + ' ' + number;
+      }
       if (parent && ['bubble', 'text', 'sfx'].includes(e.kind)) {
         e.parentId = parent.id;
-        e.x = parent.x + 20;
-        e.y = parent.y + 20;
+        const offset =
+          page.elements.filter(
+            (child) =>
+              child.parentId === parent.id && ['bubble', 'text', 'sfx'].includes(child.kind),
+          ).length * 24;
+        e.width = Math.min(e.width, parent.width * 0.7);
+        e.height = Math.min(e.height, parent.height * 0.45);
+        e.x = Math.min(parent.x + parent.width - e.width - 8, parent.x + 20 + offset);
+        e.y = Math.min(parent.y + parent.height - e.height - 8, parent.y + 20 + offset);
       }
-      const index = e.kind === 'panel' ? page.moments.length : momentIndex;
+      const parentMoment = e.parentId
+        ? page.moments.findIndex((m) => m.show.includes(e.parentId!))
+        : -1;
+      const index =
+        e.kind === 'panel' ? page.moments.length : parentMoment >= 0 ? parentMoment : momentIndex;
       updatePage((p) => {
         p.elements.push(e);
         if (e.kind === 'panel')
@@ -906,9 +947,42 @@ export function Editor({
                 <div className={`layer-row ${e.id === selected ? 'active' : ''}`} key={e.id}>
                   <button onClick={() => selectElement(e.id)}>
                     <span>{String(i + 1).padStart(2, '0')}</span>
+                    {e.locked ? '▣ ' : ''}
                     {e.parentId ? '↳ ' : ''}
                     {e.name}
                   </button>
+                  <details className="layer-actions">
+                    <summary aria-label={t('layerActions') + ' ' + e.name}>⋯</summary>
+                    <div>
+                      <button
+                        onClick={() => {
+                          const next = duplicateElement(page, e.id);
+                          commitPage(next.page);
+                          setSelected(next.id);
+                        }}
+                      >
+                        <Copy size={13} />
+                        {t('duplicate')}
+                      </button>
+                      <button
+                        onClick={() => commitPage(changeElement(page, { ...e, locked: !e.locked }))}
+                      >
+                        {t(e.locked ? 'unlockDrag' : 'lockDrag')}
+                      </button>
+                      <button
+                        className="danger-text"
+                        onClick={() => {
+                          const next = removeElement(page, e.id);
+                          commitPage(next);
+                          setSelected(undefined);
+                          setMomentIndex(Math.min(momentIndex, next.moments.length - 1));
+                        }}
+                      >
+                        <Trash2 size={13} />
+                        {t('delete')}
+                      </button>
+                    </div>
+                  </details>
                   <button
                     aria-label={t('up')}
                     disabled={i === 0}
@@ -942,16 +1016,12 @@ export function Editor({
         <main className="workspace">
           <div className="canvas-toolbar">
             <div>
-              {(['panel', 'bubble', 'text', 'sfx', 'image', 'video'] as const)
-                .filter(
-                  (kind) => element?.kind !== 'panel' || !['bubble', 'text', 'sfx'].includes(kind),
-                )
-                .map((kind) => (
-                  <button key={kind} onClick={() => add(kind)}>
-                    <Plus size={13} />
-                    {t(kind)}
-                  </button>
-                ))}
+              {(['panel', 'bubble', 'text', 'sfx', 'image', 'video'] as const).map((kind) => (
+                <button key={kind} onClick={() => add(kind)}>
+                  <Plus size={13} />
+                  {t(kind)}
+                </button>
+              ))}
               <button onClick={() => setGallery({ kind: 'panel', replace: false })}>
                 {t('modelLibrary')}
               </button>
@@ -993,11 +1063,43 @@ export function Editor({
                     }),
                   );
                   setMomentIndex(page.moments.length);
+                  setSelected(undefined);
                 }}
               >
                 <Plus size={14} />
                 {t('newMoment')}
               </button>
+              <details className="timeline-add-menu">
+                <summary>{t('moreMomentOptions')}</summary>
+                <button
+                  onClick={() => {
+                    const effect = newElement('sfx');
+                    effect.name = t('transitionLettering');
+                    effect.text = 'BAM!';
+                    effect.transitionOnly = true;
+                    effect.sfxTiming = 'entry';
+                    effect.x = page.width * 0.25;
+                    effect.y = page.height * 0.4;
+                    const index = page.moments.length;
+                    updatePage((p) => {
+                      p.elements.push(effect);
+                      p.moments.push({
+                        id: uid(),
+                        label: t('transitionMoment'),
+                        show: [effect.id],
+                        hide: [],
+                        transition: 'shake',
+                        duration: 700,
+                        anchorId: effect.id,
+                      });
+                    });
+                    setMomentIndex(index);
+                    setSelected(effect.id);
+                  }}
+                >
+                  {t('addTransitionLettering')}
+                </button>
+              </details>
             </div>
             <div className="moment-strip">
               {page.moments.map((m, i) => (
@@ -1108,11 +1210,6 @@ export function Editor({
                     {t('importArt')}
                   </button>
                   <p>{t('frameHint')}</p>
-                  <div className="element-actions">
-                    <button onClick={() => add('bubble')}>{t('bubbleInPanel')}</button>
-                    <button onClick={() => add('text')}>{t('textInPanel')}</button>
-                    <button onClick={() => add('sfx')}>{t('sfxInPanel')}</button>
-                  </div>
                   {page.elements
                     .filter((child) => child.parentId === element.id)
                     .map((child) => (
@@ -1329,21 +1426,6 @@ export function Editor({
                   </>
                 )}
               </details>
-              <div className="button-row">
-                <button
-                  aria-label={t('duplicate')}
-                  onClick={() => {
-                    const copy = duplicateElement(page, element.id);
-                    commitPage(copy.page);
-                    setSelected(copy.id);
-                  }}
-                >
-                  <Copy size={15} />
-                </button>
-                <button aria-label={t('delete')} onClick={removeSelected}>
-                  <Trash2 size={15} /> {t('delete')} · Del
-                </button>
-              </div>
             </div>
           ) : (
             <p className="sidebar-note">{t('selectedHint')}</p>
@@ -1352,6 +1434,16 @@ export function Editor({
             <div className="section-label">
               {String(momentIndex + 1).padStart(2, '0')} · {t('moments')}
             </div>
+            <AudioSequence
+              page={page}
+              index={momentIndex}
+              assets={project.assets}
+              language={language}
+              detailsRef={cuePanel}
+              onChange={commitPage}
+              onSelect={selectElement}
+              onTest={() => setPreview(true)}
+            />
             <details className="sidebar-menu">
               <summary>{t('momentSettings')}</summary>
               <label>
@@ -1436,6 +1528,30 @@ export function Editor({
                       (id) => updateElement({ sfxId: id || undefined }),
                       'sfx',
                     )}
+                  {['bubble', 'sfx'].includes(element.kind) && (
+                    <button
+                      onClick={() => {
+                        if (cuePanel.current) {
+                          cuePanel.current.open = true;
+                          cuePanel.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                        }
+                      }}
+                    >
+                      {t('configureCue')}
+                    </button>
+                  )}
+                  {element.kind === 'sfx' && (
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={!!element.transitionOnly}
+                        onChange={(event) =>
+                          updateElement({ transitionOnly: event.target.checked })
+                        }
+                      />
+                      {t('transitionOnly')}
+                    </label>
+                  )}
                   {element.kind === 'panel' && (
                     <>
                       {mediaSelect(
@@ -1444,6 +1560,17 @@ export function Editor({
                         (id) => changeMoment({ musicId: id || undefined, stopMusic: false }),
                         'music',
                       )}
+                      <label>
+                        {t('musicMix')} · {Math.round(audioGain(moment.musicVolume) * 100)}%
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step=".05"
+                          value={audioGain(moment.musicVolume)}
+                          onChange={(event) => changeMoment({ musicVolume: +event.target.value })}
+                        />
+                      </label>
                       <label className="checkbox-label">
                         <input
                           type="checkbox"
@@ -1456,48 +1583,48 @@ export function Editor({
                   )}
                 </details>
               )}
-            <div className="button-row">
-              <button
-                disabled={momentIndex === 0}
-                aria-label={`${t('up')} ${t('moments')}`}
-                onClick={() => {
-                  updatePage((p) => {
-                    [p.moments[momentIndex - 1], p.moments[momentIndex]] = [
-                      p.moments[momentIndex],
-                      p.moments[momentIndex - 1],
-                    ];
-                  });
-                  setMomentIndex((i) => i - 1);
-                }}
-              >
-                <ChevronUp size={15} />
-              </button>
-              <button
-                disabled={momentIndex === page.moments.length - 1}
-                aria-label={`${t('down')} ${t('moments')}`}
-                onClick={() => {
-                  updatePage((p) => {
-                    [p.moments[momentIndex + 1], p.moments[momentIndex]] = [
-                      p.moments[momentIndex],
-                      p.moments[momentIndex + 1],
-                    ];
-                  });
-                  setMomentIndex((i) => i + 1);
-                }}
-              >
-                <ChevronDown size={15} />
-              </button>
-              <button
-                disabled={page.moments.length === 1}
-                aria-label={`${t('delete')} ${t('moments')}`}
-                onClick={() => {
-                  updatePage((p) => p.moments.splice(momentIndex, 1));
-                  setMomentIndex((i) => Math.max(0, i - 1));
-                }}
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
+            <details className="sidebar-menu">
+              <summary>{t('momentActions')}</summary>
+              <div className="button-row">
+                <button
+                  disabled={momentIndex === 0}
+                  aria-label={`${t('up')} ${t('moments')}`}
+                  onClick={() => {
+                    updatePage((p) => {
+                      [p.moments[momentIndex - 1], p.moments[momentIndex]] = [
+                        p.moments[momentIndex],
+                        p.moments[momentIndex - 1],
+                      ];
+                    });
+                    setMomentIndex((i) => i - 1);
+                  }}
+                >
+                  <ChevronUp size={15} />
+                </button>
+                <button
+                  disabled={momentIndex === page.moments.length - 1}
+                  aria-label={`${t('down')} ${t('moments')}`}
+                  onClick={() => {
+                    updatePage((p) => {
+                      [p.moments[momentIndex + 1], p.moments[momentIndex]] = [
+                        p.moments[momentIndex],
+                        p.moments[momentIndex + 1],
+                      ];
+                    });
+                    setMomentIndex((i) => i + 1);
+                  }}
+                >
+                  <ChevronDown size={15} />
+                </button>
+                <button
+                  disabled={page.moments.length === 1}
+                  aria-label={`${t('delete')} ${t('moments')}`}
+                  onClick={() => setMomentDeletion(true)}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </details>
           </div>
         </aside>
       </div>
@@ -1506,6 +1633,7 @@ export function Editor({
           project={project}
           initialChapter={chapterIndex}
           initialPage={pageIndex}
+          initialMoment={momentIndex}
           language={language}
           onClose={() => setPreview(false)}
         />
@@ -1549,6 +1677,29 @@ export function Editor({
               {t('save')}
             </button>
             {error && <p className="error-text">{error}</p>}
+          </section>
+        </div>
+      )}
+      {momentDeletion && (
+        <div className="modal-backdrop">
+          <section className="modal" role="dialog" aria-modal="true">
+            <h2>{t('removeMoment')}</h2>
+            <p>{t('removeMomentHint')}</p>
+            <div className="button-row">
+              <button onClick={() => setMomentDeletion(false)}>{t('cancel')}</button>
+              <button
+                className="danger-button"
+                onClick={() => {
+                  const next = deleteMoment(page, momentIndex);
+                  commitPage(next);
+                  setMomentIndex(Math.max(0, momentIndex - 1));
+                  setSelected(undefined);
+                  setMomentDeletion(false);
+                }}
+              >
+                {t('removeMoment')}
+              </button>
+            </div>
           </section>
         </div>
       )}

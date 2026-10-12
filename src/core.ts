@@ -17,6 +17,12 @@ export type Element = {
   parentId?: string;
   voiceId?: string;
   sfxId?: string;
+  audioOrder?: number;
+  audioVolume?: number;
+  audioDelay?: number;
+  sfxTiming?: 'entry' | 'after-transition' | 'after-dialogue';
+  transitionOnly?: boolean;
+  locked?: boolean;
   pathD?: string;
   textColor?: string;
   fontFamily?: string;
@@ -49,6 +55,7 @@ export type Moment = {
   voiceId?: string;
   sfxId?: string;
   musicId?: string;
+  musicVolume?: number;
   stopMusic?: boolean;
   anchorId?: string;
 };
@@ -504,6 +511,7 @@ export function makeTemplate(element: Element, name: string): ElementTemplate {
   delete copy.posterId;
   delete copy.voiceId;
   delete copy.sfxId;
+  delete copy.locked;
   delete copy.parentId;
   delete copy.editorOnly;
   copy.pageImage = false;
@@ -609,22 +617,9 @@ export function linkElement(page: Page, id: string, parentId?: string): Page {
   return copy;
 }
 export function momentAudioIds(page: Page, index: number, kind: 'voice' | 'sfx'): string[] {
-  const moment = page.moments[index];
-  if (!moment) return [];
-  const before = visibleIds(page.moments, index - 1, page.elements),
-    now = visibleIds(page.moments, index, page.elements);
-  const ids = page.elements
-    .filter((e) => now.has(e.id) && (!before.has(e.id) || moment.show.includes(e.id)))
-    .flatMap((e) =>
-      kind === 'voice' && e.kind === 'bubble' && e.voiceId
-        ? [e.voiceId]
-        : kind === 'sfx' && e.kind === 'sfx' && e.sfxId
-          ? [e.sfxId]
-          : [],
-    );
-  const legacy = kind === 'voice' ? moment.voiceId : moment.sfxId;
-  if (legacy) ids.push(legacy);
-  return [...new Set(ids)];
+  return momentAudioCues(page, index)
+    .filter((c) => c.kind === kind)
+    .map((c) => c.assetId);
 }
 export function removeAsset(project: Project, id: string): Project {
   const copy = snapshot(project);
@@ -644,4 +639,125 @@ export function removeAsset(project: Project, id: string): Project {
     }),
   );
   return copy;
+}
+
+export type AudioCue = {
+  elementId?: string;
+  assetId: string;
+  kind: 'voice' | 'sfx';
+  volume: number;
+  delay: number;
+  afterDialogue: boolean;
+  transitionDelay?: number;
+};
+export const audioGain = (value: number | undefined, fallback = 1) =>
+  Math.max(0, Math.min(1, Number.isFinite(value) ? value! : fallback));
+export function momentAudioCues(page: Page, index: number, reduced = false): AudioCue[] {
+  const m = page.moments[index];
+  if (!m) return [];
+  const before = visibleIds(page.moments, index - 1, page.elements),
+    now = visibleIds(page.moments, index, page.elements);
+  const eligible = page.elements.filter(
+    (e) => now.has(e.id) && (!before.has(e.id) || m.show.includes(e.id)),
+  );
+  const voices = eligible
+    .filter((e) => e.kind === 'bubble' && e.voiceId)
+    .sort(
+      (a, b) =>
+        (a.audioOrder ?? page.elements.indexOf(a)) - (b.audioOrder ?? page.elements.indexOf(b)),
+    )
+    .map((e) => ({
+      elementId: e.id,
+      assetId: e.voiceId!,
+      kind: 'voice' as const,
+      volume: audioGain(e.audioVolume),
+      delay: Math.max(0, Math.min(30000, e.audioDelay ?? 0)),
+      afterDialogue: false,
+    }));
+  const effects = eligible
+    .filter((e) => e.kind === 'sfx' && e.sfxId)
+    .map((e) => ({
+      elementId: e.id,
+      assetId: e.sfxId!,
+      kind: 'sfx' as const,
+      volume: audioGain(e.audioVolume),
+      delay:
+        Math.max(0, Math.min(30000, e.audioDelay ?? 0)) +
+        (e.sfxTiming === 'after-transition' && !reduced && m.transition !== 'none'
+          ? m.duration
+          : 0),
+      afterDialogue: e.sfxTiming === 'after-dialogue',
+      transitionDelay:
+        e.sfxTiming === 'after-transition' && !reduced && m.transition !== 'none' ? m.duration : 0,
+    }));
+  if (m.voiceId && !voices.some((c) => c.assetId === m.voiceId))
+    voices.push({
+      assetId: m.voiceId,
+      kind: 'voice',
+      volume: 1,
+      delay: 0,
+      afterDialogue: false,
+    } as (typeof voices)[number]);
+  if (m.sfxId && !effects.some((c) => c.assetId === m.sfxId))
+    effects.push({
+      assetId: m.sfxId,
+      kind: 'sfx',
+      volume: 1,
+      delay: 0,
+      afterDialogue: false,
+    } as (typeof effects)[number]);
+  return [...voices, ...effects];
+}
+export function readerVisibleIds(
+  page: Page,
+  index: number,
+  transitioning: boolean,
+  reduced: boolean,
+): Set<string> {
+  const visible = visibleIds(page.moments, index, page.elements);
+  page.elements
+    .filter(
+      (e) =>
+        e.kind === 'sfx' &&
+        e.transitionOnly &&
+        (!page.moments[index]?.show.includes(e.id) || (!transitioning && !reduced)),
+    )
+    .forEach((e) => visible.delete(e.id));
+  return visible;
+}
+export function reorderDialogue(page: Page, index: number, id: string, delta: number): Page {
+  const copy = snapshotPage(page);
+  const list = momentAudioCues(copy, index)
+    .filter((c) => c.kind === 'voice' && c.elementId)
+    .map((c) => copy.elements.find((e) => e.id === c.elementId)!);
+  const at = list.findIndex((e) => e.id === id),
+    to = at + delta;
+  if (at < 0 || to < 0 || to >= list.length) return copy;
+  [list[at], list[to]] = [list[to], list[at]];
+  list.forEach((e, i) => (e.audioOrder = i + 1));
+  return copy;
+}
+export function deleteMoment(page: Page, index: number): Page {
+  const copy = snapshotPage(page);
+  if (copy.moments.length < 2 || !copy.moments[index]) return copy;
+  const [removed] = copy.moments.splice(index, 1),
+    target = copy.moments[Math.max(0, index - 1)];
+  target.show = [...new Set([...target.show, ...removed.show])];
+  target.hide = [...new Set([...target.hide, ...removed.hide])].filter(
+    (id) => !target.show.includes(id),
+  );
+  if (!target.musicId && removed.musicId) {
+    target.musicId = removed.musicId;
+    target.musicVolume = removed.musicVolume;
+  }
+  if (!target.voiceId) target.voiceId = removed.voiceId;
+  if (!target.sfxId) target.sfxId = removed.sfxId;
+  return copy;
+}
+export function musicVolumeAt(moments: Moment[], index: number): number {
+  let volume = 1;
+  moments.slice(0, index + 1).forEach((m) => {
+    if (m.musicId || m.stopMusic) volume = audioGain(m.musicVolume);
+  });
+  return volume;
 }

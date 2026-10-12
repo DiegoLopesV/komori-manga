@@ -15,6 +15,9 @@ it('requires an adult warning before showing any cover or page', () => {
 it('navigates with buttons and restores progress', () => {
   render(<Reader project={createProject()} language="pt-BR" onClose={vi.fn()} />);
   fireEvent.click(screen.getByRole('button', { name: 'Avançar' }));
+  expect(screen.getByText('1 / 4')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Avançar' }));
+  expect(screen.getByText('1 / 4')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Avançar' }));
   expect(screen.getByText('2 / 4')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
