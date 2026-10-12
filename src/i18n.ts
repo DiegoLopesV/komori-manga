@@ -177,8 +177,8 @@ const dictionary = {
     'Import audio or choose an existing asset. It plays in the moment that reveals the element.',
   ],
   frameHint: [
-    'Elementos vinculados acompanham o quadro ao mover ou redimensionar. Podem ser revelados juntos ou em momentos separados.',
-    'Linked elements move and resize with their panel. They can be revealed together or in separate moments.',
+    'Elementos vinculados acompanham o quadro ao mover ou redimensionar e aparecem juntos na leitura.',
+    'Linked elements move and resize with their panel and appear together during reading.',
   ],
   svgNewPage: [
     'SVG importado em uma nova página; a página anterior foi preservada.',
