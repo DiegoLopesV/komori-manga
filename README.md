@@ -81,3 +81,5 @@ Antes de divulgar para muitos autores: SMTP/login social, cotas no servidor, pol
 Sem anúncios ou comissão da plataforma nesta versão. Links externos vão diretamente ao serviço escolhido pelo autor. O piloto usa Vercel Hobby e Supabase Free; monitore as cotas dos provedores. O Hobby é destinado a uso pessoal não comercial; reavalie o plano/provedor antes da operação comercial ou monetização da plataforma.
 
 Código: [GNU GPLv3](LICENSE). Fontes DM Sans e Manrope são distribuídas pelos pacotes Fontsource com suas respectivas licenças OFL. Os autores mantêm os direitos dos materiais que importarem.
+
+Áudios são importados e gerenciados em Materiais → Áudios importados, na sidebar esquerda. À direita, escolha fala no balão, efeito na onomatopeia ou música no quadro. Artes possuem biblioteca própria e importação direta pelo quadro. Vincular quadros reúne suas entradas de leitura e música; bordas azuis e o indicador “Conjunto vinculado” identificam os membros. Desvincular cria uma entrada independente.

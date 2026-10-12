@@ -4,6 +4,7 @@ export type Asset = {
   id: string;
   name: string;
   type: 'image' | 'video' | 'audio';
+  audioRole?: 'voice' | 'sfx' | 'music';
   mime: string;
   size: number;
   src: string;
@@ -14,6 +15,8 @@ export type Element = {
   name: string;
   kind: 'panel' | 'image' | 'bubble' | 'text' | 'sfx' | 'video' | 'vector' | 'group';
   parentId?: string;
+  voiceId?: string;
+  sfxId?: string;
   pathD?: string;
   textColor?: string;
   fontFamily?: string;
@@ -162,6 +165,8 @@ export function buildPublication(draft: Project, chapterId: string, previous?: P
       p.elements.forEach((e) => {
         if (e.assetId) used.add(e.assetId);
         if (e.posterId) used.add(e.posterId);
+        if (e.voiceId) used.add(e.voiceId);
+        if (e.sfxId) used.add(e.sfxId);
       });
       p.moments.forEach((m) => {
         if (m.voiceId) used.add(m.voiceId);
@@ -483,6 +488,8 @@ export function makeTemplate(element: Element, name: string): ElementTemplate {
   copy.y = 0;
   delete copy.assetId;
   delete copy.posterId;
+  delete copy.voiceId;
+  delete copy.sfxId;
   delete copy.parentId;
   delete copy.editorOnly;
   copy.pageImage = false;
@@ -528,4 +535,99 @@ export function musicAt(moments: Moment[], index: number): string | undefined {
     else if (m.musicId) music = m.musicId;
   });
   return music;
+}
+
+export function linkElement(page: Page, id: string, parentId?: string): Page {
+  const copy = snapshotPage(page),
+    element = copy.elements.find((e) => e.id === id);
+  if (!element || element.parentId === parentId) return copy;
+  const subtree = descendants(copy.elements, id);
+  subtree.add(id);
+  const target = copy.elements.find((e) => e.id === parentId);
+  if (parentId && (!target || subtree.has(parentId) || !['panel', 'group'].includes(target.kind)))
+    return copy;
+  const old = copy.moments.find((m) => m.show.includes(id));
+  element.parentId = parentId;
+  let root = target;
+  const seen = new Set<string>();
+  while (root?.parentId && !seen.has(root.id)) {
+    seen.add(root.id);
+    root = copy.elements.find((e) => e.id === root!.parentId) ?? root;
+  }
+  let destination = root ? copy.moments.find((m) => m.show.includes(root!.id)) : undefined;
+  if (!destination) {
+    destination = {
+      id: uid(),
+      label: root?.name ?? element.name,
+      show: root ? [root.id] : [],
+      hide: [],
+      transition: old?.transition ?? 'fade',
+      duration: old?.duration ?? 400,
+      anchorId: root?.id ?? id,
+      musicId: old?.musicId,
+      stopMusic: old?.stopMusic,
+    };
+    const index = old ? copy.moments.indexOf(old) + 1 : copy.moments.length;
+    copy.moments.splice(index, 0, destination);
+  }
+  if (!destination.musicId && !destination.stopMusic && old?.musicId)
+    destination.musicId = old.musicId;
+  const affected = new Set(
+    copy.moments
+      .filter((m) => m !== destination && m.show.some((e) => subtree.has(e)))
+      .map((m) => m.id),
+  );
+  copy.moments.forEach((m) => {
+    m.show = m.show.filter((e) => !subtree.has(e));
+    m.hide = m.hide.filter((e) => !subtree.has(e));
+    if (m !== destination && m.anchorId && subtree.has(m.anchorId)) {
+      delete m.anchorId;
+      if (!m.show.length && !m.hide.length) {
+        delete m.musicId;
+        delete m.stopMusic;
+      }
+    }
+  });
+  destination.show.push(...subtree);
+  copy.moments = copy.moments.filter(
+    (m) => m === destination || !affected.has(m.id) || m.show.length > 0 || m.hide.length > 0,
+  );
+  return copy;
+}
+export function momentAudioIds(page: Page, index: number, kind: 'voice' | 'sfx'): string[] {
+  const moment = page.moments[index];
+  if (!moment) return [];
+  const before = visibleIds(page.moments, index - 1, page.elements),
+    now = visibleIds(page.moments, index, page.elements);
+  const ids = page.elements
+    .filter((e) => now.has(e.id) && (!before.has(e.id) || moment.show.includes(e.id)))
+    .flatMap((e) =>
+      kind === 'voice' && e.kind === 'bubble' && e.voiceId
+        ? [e.voiceId]
+        : kind === 'sfx' && e.kind === 'sfx' && e.sfxId
+          ? [e.sfxId]
+          : [],
+    );
+  const legacy = kind === 'voice' ? moment.voiceId : moment.sfxId;
+  if (legacy) ids.push(legacy);
+  return [...new Set(ids)];
+}
+export function removeAsset(project: Project, id: string): Project {
+  const copy = snapshot(project);
+  copy.assets = copy.assets.filter((a) => a.id !== id);
+  if (copy.coverId === id) delete copy.coverId;
+  copy.chapters.forEach((c) =>
+    c.pages.forEach((p) => {
+      if (p.backgroundAssetId === id) delete p.backgroundAssetId;
+      p.elements.forEach((e) => {
+        for (const key of ['assetId', 'posterId', 'voiceId', 'sfxId'] as const)
+          if (e[key] === id) delete e[key];
+      });
+      p.moments.forEach((m) => {
+        for (const key of ['voiceId', 'sfxId', 'musicId'] as const)
+          if (m[key] === id) delete m[key];
+      });
+    }),
+  );
+  return copy;
 }

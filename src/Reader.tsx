@@ -6,6 +6,7 @@ import {
   initialPlayback,
   visibleIds,
   musicAt,
+  momentAudioIds,
   type Project,
   type Playback,
 } from './core';
@@ -37,8 +38,8 @@ export function Reader({
     [volumes, setVolumes] = useState({ voice: 0.8, sfx: 0.8, music: 0.3 });
   const [started, setStarted] = useState(false);
   const tracks = useRef<{
-    voice?: HTMLAudioElement;
-    sfx?: HTMLAudioElement;
+    voice?: HTMLAudioElement[];
+    sfx?: HTMLAudioElement[];
     music?: HTMLAudioElement;
     musicId?: string;
     activated?: boolean;
@@ -47,23 +48,25 @@ export function Reader({
     page = currentChapter.pages[pageIndex],
     moment = page.moments[state.index];
   const stop = useCallback(() => {
-    tracks.current.voice?.pause();
-    tracks.current.sfx?.pause();
+    tracks.current.voice?.forEach((a) => a.pause());
+    tracks.current.sfx?.forEach((a) => a.pause());
   }, []);
   const playMoment = useCallback(() => {
     stop();
     if (muted || !moment) return;
     for (const kind of ['voice', 'sfx'] as const) {
-      const id = kind === 'voice' ? moment.voiceId : moment.sfxId;
-      const asset = project.assets.find((a) => a.id === id);
-      if (asset?.src) {
-        const audio = new Audio(asset.src);
-        audio.volume = volumes[kind];
-        tracks.current[kind] = audio;
-        void audio.play().catch(() => {});
+      tracks.current[kind] = [];
+      for (const id of momentAudioIds(page, state.index, kind)) {
+        const asset = project.assets.find((a) => a.id === id);
+        if (asset?.src) {
+          const audio = new Audio(asset.src);
+          audio.volume = volumes[kind];
+          tracks.current[kind]!.push(audio);
+          void audio.play().catch(() => {});
+        }
       }
     }
-  }, [moment, muted, project.assets, stop, volumes]);
+  }, [moment, page, state.index, muted, project.assets, stop, volumes]);
   const previousMoments = project.chapters.flatMap((c, ci) =>
     ci < chapter
       ? c.pages.flatMap((p) => p.moments)
@@ -99,8 +102,12 @@ export function Reader({
   useEffect(() => {
     if (muted) stop();
     else {
-      if (tracks.current.voice) tracks.current.voice.volume = volumes.voice;
-      if (tracks.current.sfx) tracks.current.sfx.volume = volumes.sfx;
+      tracks.current.voice?.forEach((a) => {
+        a.volume = volumes.voice;
+      });
+      tracks.current.sfx?.forEach((a) => {
+        a.volume = volumes.sfx;
+      });
     }
   }, [muted, stop, volumes]);
   useEffect(

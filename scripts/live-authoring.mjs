@@ -54,13 +54,6 @@ try {
     .setInputFiles({ name: 'art.png', mimeType: 'image/png', buffer: png });
   await page.locator('.editor-paper image').waitFor();
   await page.locator('input[data-import="voice"]').setInputFiles('public/demo/chime.wav');
-  await page.locator('.right-sidebar summary').filter({ hasText: 'Áudio' }).click();
-  await page
-    .locator('.moment-properties')
-    .getByRole('combobox', { name: 'Falas', exact: true })
-    .locator('option')
-    .nth(1)
-    .waitFor({ state: 'attached' });
   await page.locator('.right-sidebar summary').filter({ hasText: 'Gerenciar modelos' }).click();
   await page.getByRole('button', { name: 'Salvar como modelo', exact: true }).click();
   await page.getByLabel('Nome do modelo').fill('Quadro SVG pessoal');
@@ -73,6 +66,10 @@ try {
   );
   await page.getByRole('button', { name: 'Balão neste quadro', exact: true }).click();
   await page.getByRole('textbox', { name: 'Texto', exact: true }).fill('Fala do quadro.');
+  await page.locator('.right-sidebar summary').filter({ hasText: 'Áudio' }).click();
+  await page
+    .getByRole('combobox', { name: 'Falas', exact: true })
+    .selectOption({ label: 'chime.wav' });
   await page.getByRole('button', { name: 'Publicar capítulo atual', exact: true }).click();
   await page.getByText('Publicação pronta', { exact: true }).waitFor({ timeout: 30000 });
   const link = await page.getByLabel('Compartilhar obra').inputValue(),
@@ -84,7 +81,7 @@ try {
       .snapshot;
   assert.equal(snapshot.chapters[0].pages[0].elements.filter((e) => e.kind === 'panel').length, 4);
   assert.ok(snapshot.chapters[0].pages[0].elements.find((e) => e.kind === 'bubble').parentId);
-  assert.ok(snapshot.chapters[0].pages[0].moments[0].voiceId);
+  assert.ok(snapshot.chapters[0].pages[0].elements.find((e) => e.kind === 'bubble').voiceId);
   const readerContext = await browser.newContext({ viewport: { width: 390, height: 844 } }),
     reader = await readerContext.newPage();
   await reader.goto(link);

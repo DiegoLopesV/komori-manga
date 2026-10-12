@@ -23,6 +23,32 @@ const dictionary = {
   advancedShape: ['Geometria avançada', 'Advanced geometry'],
   audioSettings: ['Áudio', 'Audio'],
   momentSettings: ['Transição e visibilidade', 'Transition and visibility'],
+  importedArt: ['Artes importadas', 'Imported artwork'],
+  importedAudio: ['Áudios importados', 'Imported audio'],
+  otherAudio: ['Áudios anteriores', 'Previous audio'],
+  artLibraryHint: [
+    'Selecione uma arte para usar no elemento atual.',
+    'Select artwork to use in the current element.',
+  ],
+  audioLibraryHint: [
+    'Importe e gerencie aqui. Para usar, selecione um balão, onomatopeia ou quadro e escolha o áudio à direita.',
+    'Import and manage here. To use, select a bubble, sound-effect lettering or panel and choose audio on the right.',
+  ],
+  audioSelectHint: [
+    'Escolha um arquivo da biblioteca de materiais à esquerda.',
+    'Choose a file from the materials library on the left.',
+  ],
+  fileName: ['Nome do arquivo', 'File name'],
+  removeMaterial: ['Remover material', 'Remove material'],
+  removeMaterialHint: [
+    'Remove este material e seus usos do rascunho. A versão publicada só muda quando você publicar novamente.',
+    'Removes this material and its uses from the draft. The published version changes only when you publish again.',
+  ],
+  linkedTogether: ['Conjunto vinculado', 'Linked set'],
+  linkedReadingHint: [
+    'Entram juntos na leitura e compartilham a música. A borda azul identifica o conjunto.',
+    'Appear together and share music. Blue outlines identify the set.',
+  ],
   properties: ['Propriedades', 'Properties'],
   moments: ['Momentos de leitura', 'Reading moments'],
   import: ['Importar arquivos', 'Import files'],

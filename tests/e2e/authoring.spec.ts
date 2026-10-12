@@ -67,7 +67,7 @@ test('custom shapes are saved as personal presets and remain after reload in ano
   await page.getByRole('button', { name: 'Meu triângulo', exact: true }).click();
   await expect(page.locator('.editor-paper circle')).toHaveCount(3);
 });
-test('frame audio imports attach to its reveal and linked balloons follow resizing', async ({
+test('library audio is assigned by element type and linked balloons follow resizing', async ({
   page,
 }) => {
   await page.goto('/');
@@ -81,18 +81,19 @@ test('frame audio imports attach to its reveal and linked balloons follow resizi
   await page.locator('input[data-import="sfx"]').setInputFiles('public/demo/chime.wav');
   await page.locator('input[data-import="music"]').setInputFiles('public/demo/ambience.wav');
   await page.locator('.right-sidebar summary').filter({ hasText: 'Áudio' }).click();
-  await expect(
-    page.locator('.moment-properties').getByRole('combobox', { name: 'Falas', exact: true }),
-  ).not.toHaveValue('');
-  await expect(
-    page.locator('.moment-properties').getByRole('combobox', { name: 'Efeitos', exact: true }),
-  ).not.toHaveValue('');
-  await expect(
-    page
-      .locator('.moment-properties')
-      .getByRole('combobox', { name: 'Música ambiente', exact: true }),
-  ).not.toHaveValue('');
+  await expect(page.getByRole('combobox', { name: 'Música ambiente', exact: true })).toHaveValue(
+    '',
+  );
+  await page
+    .getByRole('combobox', { name: 'Música ambiente', exact: true })
+    .selectOption({ label: 'ambience.wav' });
   await page.getByRole('button', { name: 'Balão neste quadro', exact: true }).click();
+  await page
+    .getByRole('combobox', { name: 'Falas', exact: true })
+    .selectOption({ label: 'chime.wav' });
+  await expect(
+    page.getByRole('combobox', { name: 'Efeitos', exact: true, includeHidden: true }),
+  ).toHaveCount(0);
   const before = await page.locator('.editor-paper [data-kind="bubble"]').getAttribute('transform');
   await page
     .locator(`.editor-paper [data-element-id="${panelId}"]`)
@@ -156,9 +157,121 @@ test('sidebar hides secondary controls and protects page deletion', async ({ pag
   await page.getByRole('button', { name: 'Quadro', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Salvar como modelo', exact: true })).toBeHidden();
   await expect(
-    page.getByRole('button', { name: 'Importar fala', exact: true, includeHidden: true }),
-  ).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Importar fala', exact: true })).toBeHidden();
+    page
+      .locator('.right-sidebar')
+      .getByRole('button', { name: 'Importar fala', includeHidden: true }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Materiais', exact: true }).click();
+  await page.locator('.left-sidebar summary').filter({ hasText: 'Áudios importados' }).click();
+  await page.locator('.left-sidebar summary').filter({ hasText: 'Falas' }).click();
+  await expect(
+    page.locator('.left-sidebar').getByRole('button', { name: 'Importar fala', exact: true }),
+  ).toBeVisible();
+});
+
+test('left libraries manage media; contextual audio and linked panels share reveal/music', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Começar uma obra' }).click();
+  await page.locator('.editor-paper [data-kind="panel"]').first().click();
+  await page.getByRole('button', { name: 'Materiais', exact: true }).click();
+  await page.locator('.left-sidebar summary').filter({ hasText: 'Áudios importados' }).click();
+  await page.locator('.left-sidebar summary').filter({ hasText: 'Música ambiente' }).click();
+  await page.locator('input[data-import="music"]').setInputFiles('public/demo/ambience.wav');
   await page.locator('.right-sidebar summary').filter({ hasText: 'Áudio' }).click();
-  await expect(page.getByRole('button', { name: 'Importar fala', exact: true })).toBeVisible();
+  await expect(
+    page
+      .locator('.right-sidebar')
+      .getByRole('button', { name: /Importar (fala|efeito|música)/, includeHidden: true }),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .locator('.right-sidebar')
+      .getByRole('combobox', { name: 'Falas', exact: true, includeHidden: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole('combobox', { name: 'Música ambiente', exact: true })
+    .selectOption({ label: 'ambience.wav' });
+  const first = await page
+    .locator('.editor-paper [data-kind="panel"]')
+    .first()
+    .getAttribute('data-element-id');
+  await page.locator('.editor-paper [data-kind="panel"]').nth(1).click();
+  await page.getByLabel('Vinculado ao quadro/conjunto').selectOption(first!);
+  await expect(page.locator('.link-indicator')).toBeVisible();
+  await expect(page.locator('.editor-paper [data-linked-outline]')).toHaveCount(2);
+  await expect(
+    page.getByRole('combobox', { name: 'Música ambiente', exact: true }),
+  ).not.toHaveValue('');
+  await expect(
+    page.getByRole('button', {
+      name: 'Revelar em outro momento',
+      exact: true,
+      includeHidden: true,
+    }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Testar leitura', exact: true }).click();
+  await expect(page.locator('.reader-page [data-kind="panel"]')).toHaveCount(2);
+});
+
+test('bubble speech and lettering effects play on reveal; library removal clears draft usage', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    (window as any).__plays = 0;
+    HTMLMediaElement.prototype.play = function () {
+      (window as any).__plays++;
+      return Promise.resolve();
+    };
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Começar uma obra' }).click();
+  await page.locator('.editor-paper [data-kind="panel"]').first().click();
+  await page.locator('input[data-import="voice"]').setInputFiles('public/demo/chime.wav');
+  await page.locator('input[data-import="sfx"]').setInputFiles('public/demo/chime.wav');
+  await page.getByRole('button', { name: 'Balão neste quadro', exact: true }).click();
+  await page.locator('.right-sidebar summary').filter({ hasText: 'Áudio' }).click();
+  await page
+    .getByRole('combobox', { name: 'Falas', exact: true })
+    .selectOption({ label: 'chime.wav' });
+  await page.getByRole('button', { name: 'Onomatopeia', exact: true }).click();
+  await page
+    .getByRole('combobox', { name: 'Efeitos', exact: true })
+    .selectOption({ label: 'chime.wav' });
+  await expect(
+    page.getByRole('combobox', { name: 'Falas', exact: true, includeHidden: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('combobox', { name: 'Música ambiente', exact: true, includeHidden: true }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Testar leitura', exact: true }).click();
+  await page.getByRole('button', { name: 'Ouvir novamente', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__plays)).toBe(2);
+  await page
+    .locator('.reader-overlay')
+    .getByRole('button', { name: 'Voltar', exact: true })
+    .click();
+  expect(await page.evaluate(() => (window as any).__plays)).toBe(2);
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await page.getByRole('button', { name: 'Materiais', exact: true }).click();
+  await page.locator('.left-sidebar summary').filter({ hasText: 'Áudios importados' }).click();
+  await page.locator('.left-sidebar summary').filter({ hasText: 'Efeitos' }).click();
+  const item = page
+    .locator('.library-item')
+    .filter({ has: page.locator('audio') })
+    .filter({ has: page.getByRole('button', { name: 'Remover material chime.wav', exact: true }) });
+  await item.getByRole('textbox').fill('impacto.wav');
+  await expect(
+    page.getByRole('combobox', { name: 'Efeitos', exact: true }).locator('option:checked'),
+  ).toHaveText('impacto.wav');
+  await page.getByRole('button', { name: 'Remover material impacto.wav', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Efeitos', exact: true })).not.toHaveValue('');
+  await page.getByRole('button', { name: 'Remover material impacto.wav', exact: true }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Remover material', exact: true })
+    .click();
+  await expect(page.getByRole('combobox', { name: 'Efeitos', exact: true })).toHaveValue('');
 });

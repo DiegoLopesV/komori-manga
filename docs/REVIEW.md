@@ -49,3 +49,5 @@ Faça a revisão no computador para editar e no celular para ler. Use primeiro �
 Para cada problema, registre: dispositivo/navegador, tarefa, resultado esperado, resultado observado e passos para reproduzir. Classifique em bloqueador (perda de dados, publicação incorreta, acesso indevido), funcional (recurso não funciona) ou experiência (funciona, mas é difícil de usar).
 
 Uma obra curta real será o critério artístico principal para a próxima iteração. Não adicionar novas funções antes de corrigir os bloqueadores encontrados nessa revisão.
+
+Revisão de materiais e vínculos: em Materiais, abrir os submenus de artes e áudios; importar, ouvir, renomear e cancelar/confirmar a remoção de um arquivo de teste. A importação não deve atribuir áudio automaticamente. Conferir seletor de fala apenas no balão, efeito apenas na onomatopeia e música apenas no quadro. Vincular dois quadros e conferir bordas azuis, indicador do conjunto, entrada simultânea e música compartilhada; desvincular e conferir entrada independente.

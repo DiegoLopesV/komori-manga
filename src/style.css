@@ -1563,3 +1563,39 @@ p {
 .sidebar-menu .danger-button:hover {
   background: #901b28;
 }
+
+.link-indicator {
+  background: #eaf3f6;
+  border-left: 3px solid #237fa0;
+  padding: 10px;
+  margin: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+}
+.link-indicator small {
+  font-size: 10px;
+  line-height: 1.6;
+}
+.library-item {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+}
+.library-item audio {
+  width: 100%;
+  height: 34px;
+}
+.asset-management label {
+  display: block;
+  font-size: 10px;
+  margin: 8px 0;
+}
+.asset-management input {
+  width: 100%;
+  margin-top: 5px;
+}
+.asset-management .danger-text {
+  color: #b42332;
+  font-size: 10px;
+}

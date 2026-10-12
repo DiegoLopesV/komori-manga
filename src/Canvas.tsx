@@ -1,5 +1,5 @@
 import { useRef, type PointerEvent, type CSSProperties } from 'react';
-import { geometryPath, type Page, type Element, type Asset } from './core';
+import { geometryPath, descendants, type Page, type Element, type Asset } from './core';
 import svgpath from 'svgpath';
 export function Canvas({
   page,
@@ -66,6 +66,14 @@ export function Canvas({
       });
   }
   const selectedElement = page.elements.find((e) => e.id === selected);
+  let linkedRoot = selectedElement;
+  const seen = new Set<string>();
+  while (linkedRoot?.parentId && !seen.has(linkedRoot.id)) {
+    seen.add(linkedRoot.id);
+    linkedRoot = page.elements.find((e) => e.id === linkedRoot!.parentId) ?? linkedRoot;
+  }
+  const linkedIds = linkedRoot ? descendants(page.elements, linkedRoot.id) : new Set<string>();
+  if (linkedRoot) linkedIds.add(linkedRoot.id);
   const asset = (id?: string) => assets.find((a) => a.id === id);
   return (
     <svg
@@ -235,6 +243,25 @@ export function Canvas({
             </g>
           );
         })}
+      {onChange &&
+        linkedIds.size > 1 &&
+        page.elements
+          .filter((e) => linkedIds.has(e.id))
+          .map((e) => (
+            <rect
+              key={'link-' + e.id}
+              data-linked-outline
+              x={e.x - 4}
+              y={e.y - 4}
+              width={e.width + 8}
+              height={e.height + 8}
+              fill="none"
+              stroke="#237fa0"
+              strokeWidth={2}
+              strokeDasharray="4 5"
+              pointerEvents="none"
+            />
+          ))}
       {selectedElement && onChange && (
         <g transform={`translate(${selectedElement.x} ${selectedElement.y})`}>
           <rect

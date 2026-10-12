@@ -27,6 +27,8 @@ import {
   uid,
   safeLink,
   changeElement,
+  linkElement,
+  removeAsset,
   removeElement,
   deletePage,
   descendants,
@@ -75,6 +77,7 @@ export function Editor({
     [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(''),
     [pageDeletion, setPageDeletion] = useState(false);
+  const [mediaDeletion, setMediaDeletion] = useState<Asset>();
   const [gallery, setGallery] = useState<{ kind: Element['kind']; replace: boolean }>(),
     [personalTemplates, setPersonalTemplates] = useState<ElementTemplate[]>([]);
   const [savingTemplate, setSavingTemplate] = useState(false),
@@ -93,6 +96,15 @@ export function Editor({
     page = chapter.pages[pageIndex],
     element = page.elements.find((e) => e.id === selected),
     moment = page.moments[momentIndex] ?? page.moments[0];
+  let linkedRoot = element;
+  const linkSeen = new Set<string>();
+  while (linkedRoot?.parentId && !linkSeen.has(linkedRoot.id)) {
+    linkSeen.add(linkedRoot.id);
+    linkedRoot = page.elements.find((e) => e.id === linkedRoot!.parentId) ?? linkedRoot;
+  }
+  const linkedIds = linkedRoot ? descendants(page.elements, linkedRoot.id) : new Set<string>();
+  if (linkedRoot) linkedIds.add(linkedRoot.id);
+  const linkedElements = page.elements.filter((e) => linkedIds.has(e.id));
   function update(fn: (copy: Project) => void) {
     const copy = snapshot(project);
     fn(copy);
@@ -168,7 +180,8 @@ export function Editor({
         share ||
         gallery ||
         pageDeletion ||
-        savingTemplate
+        savingTemplate ||
+        mediaDeletion
       )
         return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && element) {
@@ -196,6 +209,7 @@ export function Editor({
     gallery,
     pageDeletion,
     savingTemplate,
+    mediaDeletion,
   ]);
   async function importFiles(files: FileList | null) {
     if (!files) return;
@@ -346,15 +360,8 @@ export function Editor({
         p.elements.push(e);
         p.moments[momentIndex].show.push(e.id);
         setSelected(e.id);
-      } else if (['voice', 'sfx', 'music'].includes(mode)) {
-        const m = p.moments[momentIndex];
-        if (element) m.anchorId = element.id;
-        if (mode === 'voice') m.voiceId = asset.id;
-        if (mode === 'sfx') m.sfxId = asset.id;
-        if (mode === 'music') {
-          m.musicId = asset.id;
-          m.stopMusic = false;
-        }
+      } else if (mode === 'voice' || mode === 'sfx' || mode === 'music') {
+        asset.audioRole = mode;
       }
       commit(copy);
     } catch (e) {
@@ -493,34 +500,6 @@ export function Editor({
       setBusy(false);
     }
   }
-  function separateReveal() {
-    if (!element || element.editorOnly) return;
-    const index = page.moments.length;
-    updatePage((p) => {
-      const prior = p.moments.find((m) => m.anchorId === element.id);
-      p.moments.forEach((m) => {
-        m.show = m.show.filter((id) => id !== element.id);
-      });
-      p.moments.push({
-        id: uid(),
-        label: element.name,
-        show: [element.id],
-        hide: [],
-        transition: 'fade',
-        duration: 400,
-        anchorId: element.id,
-        voiceId: prior?.voiceId,
-        sfxId: prior?.sfxId,
-        musicId: prior?.musicId,
-      });
-      if (prior) {
-        delete prior.voiceId;
-        delete prior.sfxId;
-        delete prior.musicId;
-      }
-    });
-    setMomentIndex(index);
-  }
   async function doPublish() {
     if (!ownerId) {
       onLogin();
@@ -543,14 +522,22 @@ export function Editor({
     label: string,
     value: string | undefined,
     change: (id: string) => void,
-    type?: Asset['type'] | 'visual',
+    type?: Asset['type'] | 'visual' | 'voice' | 'sfx' | 'music',
   ) => (
     <label>
       {label}
       <select value={value ?? ''} onChange={(e) => change(e.target.value)}>
         <option value="">{t('none')}</option>
         {project.assets
-          .filter((a) => !type || (type === 'visual' ? a.type !== 'audio' : a.type === type))
+          .filter(
+            (a) =>
+              !type ||
+              (type === 'visual'
+                ? a.type !== 'audio'
+                : ['voice', 'sfx', 'music'].includes(type)
+                  ? a.type === 'audio' && (!a.audioRole || a.audioRole === type)
+                  : a.type === type),
+          )
           .map((a) => (
             <option value={a.id} key={a.id}>
               {a.name}
@@ -559,6 +546,32 @@ export function Editor({
       </select>
     </label>
   );
+  function assetManagement(a: Asset) {
+    return (
+      <div className="asset-management">
+        <label>
+          {t('fileName')}
+          <input
+            aria-label={t('fileName') + ' ' + a.name}
+            value={a.name}
+            onChange={(e) =>
+              update((p) => {
+                p.assets.find((asset) => asset.id === a.id)!.name = e.target.value;
+              })
+            }
+          />
+        </label>
+        <button
+          className="danger-text"
+          aria-label={t('removeMaterial') + ' ' + a.name}
+          onClick={() => setMediaDeletion(a)}
+        >
+          <Trash2 size={13} />
+          {t('removeMaterial')}
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="studio-shell">
       <header className="studio-header">
@@ -793,46 +806,93 @@ export function Editor({
           )}
           {tab === 'materials' && (
             <>
-              <button
-                className="primary full"
-                disabled={busy}
-                onClick={() => input.current?.click()}
-              >
-                <Upload size={16} />
-                {t('import')}
-              </button>
-              <input
-                ref={input}
-                type="file"
-                multiple
-                hidden
-                accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,audio/*"
-                onChange={(e) => void importFiles(e.target.files)}
-              />
-              <p className="sidebar-note">{t('emptyMaterials')}</p>
-              <div className="asset-grid">
-                {project.assets.map((a) => (
-                  <button
-                    key={a.id}
-                    className="asset-card"
-                    onClick={() => {
-                      if (a.type === 'audio') return;
-                      if (element && ['panel', 'image', 'video', 'vector'].includes(element.kind))
-                        updateElement({ assetId: a.id, pageImage: false });
-                      else add(a.type === 'video' ? 'video' : 'image', a);
-                    }}
-                    title={a.name}
-                  >
-                    {a.type === 'image' ? (
-                      <img src={a.src} alt="" />
-                    ) : (
-                      <span>{a.type === 'audio' ? '♫' : '▶'}</span>
-                    )}
-                    <small>{a.name}</small>
-                  </button>
+              <details className="sidebar-menu">
+                <summary>{t('importedArt')}</summary>
+                <button disabled={busy} onClick={() => input.current?.click()}>
+                  <Upload size={14} />
+                  {t('importImage')}
+                </button>
+                <input
+                  ref={input}
+                  type="file"
+                  multiple
+                  hidden
+                  accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"
+                  onChange={(e) => void importFiles(e.target.files)}
+                />
+                <p className="sidebar-note">{t('artLibraryHint')}</p>
+                {project.assets
+                  .filter((a) => a.type !== 'audio')
+                  .map((a) => (
+                    <div className="library-item" key={a.id}>
+                      <button
+                        className="asset-card"
+                        onClick={() => {
+                          if (
+                            element &&
+                            ['panel', 'image', 'video', 'vector'].includes(element.kind)
+                          )
+                            updateElement({ assetId: a.id, pageImage: false });
+                          else add(a.type === 'video' ? 'video' : 'image', a);
+                        }}
+                        title={a.name}
+                      >
+                        {a.type === 'image' ? <img src={a.src} alt="" /> : <span>▶</span>}
+                        <small>{a.name}</small>
+                      </button>
+                      {assetManagement(a)}
+                    </div>
+                  ))}
+              </details>
+              <details className="sidebar-menu">
+                <summary>{t('importedAudio')}</summary>
+                <p className="sidebar-note">{t('audioLibraryHint')}</p>
+                {(['voice', 'sfx', 'music'] as const).map((role) => (
+                  <details className="sidebar-menu" key={role}>
+                    <summary>
+                      {t(role === 'voice' ? 'voice' : role === 'sfx' ? 'sound' : 'music')}
+                    </summary>
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        ({ voice: voiceInput, sfx: sfxInput, music: musicInput })[
+                          role
+                        ].current?.click()
+                      }
+                    >
+                      <Upload size={14} />
+                      {t(
+                        role === 'voice'
+                          ? 'importVoice'
+                          : role === 'sfx'
+                            ? 'importSfx'
+                            : 'importMusic',
+                      )}
+                    </button>
+                    {project.assets
+                      .filter((a) => a.type === 'audio' && a.audioRole === role)
+                      .map((a) => (
+                        <div className="library-item" key={a.id}>
+                          <audio controls preload="none" src={a.src} aria-label={a.name} />
+                          {assetManagement(a)}
+                        </div>
+                      ))}
+                  </details>
                 ))}
-              </div>
-              <p className="sidebar-note">{t('flatHint')}</p>
+                {project.assets.some((a) => a.type === 'audio' && !a.audioRole) && (
+                  <details className="sidebar-menu">
+                    <summary>{t('otherAudio')}</summary>
+                    {project.assets
+                      .filter((a) => a.type === 'audio' && !a.audioRole)
+                      .map((a) => (
+                        <div className="library-item" key={a.id}>
+                          <audio controls preload="none" src={a.src} aria-label={a.name} />
+                          {assetManagement(a)}
+                        </div>
+                      ))}
+                  </details>
+                )}
+              </details>
             </>
           )}
           {tab === 'layers' && (
@@ -944,7 +1004,10 @@ export function Editor({
                 <button
                   key={m.id}
                   className={`moment-card ${i === momentIndex ? 'active' : ''}`}
-                  onClick={() => setMomentIndex(i)}
+                  onClick={() => {
+                    setMomentIndex(i);
+                    setSelected(undefined);
+                  }}
                 >
                   <span>{String(i + 1).padStart(2, '0')}</span>
                   <strong>{m.label}</strong>
@@ -976,12 +1039,28 @@ export function Editor({
                   ))}
                 </select>
               </label>
+              {linkedElements.length > 1 && (
+                <div className="link-indicator">
+                  <strong>{t('linkedTogether')}</strong>
+                  <span>{linkedElements.map((e) => e.name).join(' · ')}</span>
+                  <small>{t('linkedReadingHint')}</small>
+                </div>
+              )}
               {!element.editorOnly && (
                 <label>
                   {t('parentPanel')}
                   <select
                     value={element.parentId ?? ''}
-                    onChange={(e) => updateElement({ parentId: e.target.value || undefined })}
+                    onChange={(event) => {
+                      const next = linkElement(page, element.id, event.target.value || undefined);
+                      commitPage(next);
+                      setMomentIndex(
+                        Math.max(
+                          0,
+                          next.moments.findIndex((m) => m.show.includes(element.id)),
+                        ),
+                      );
+                    }}
                   >
                     <option value="">{t('unlinked')}</option>
                     {page.elements
@@ -1046,11 +1125,6 @@ export function Editor({
                       </button>
                     ))}
                 </section>
-              )}
-              {!element.editorOnly && (
-                <button className="separate-reveal" onClick={separateReveal}>
-                  {t('separateReveal')}
-                </button>
               )}
               <label>
                 {t('name')}
@@ -1342,45 +1416,46 @@ export function Editor({
                 ))}
               </details>
             </details>
-            <details className="sidebar-menu">
-              <summary>{t('audioSettings')}</summary>
-              <p className="sidebar-note">{t('audioHint')}</p>
-              <div className="audio-import-actions">
-                <button onClick={() => voiceInput.current?.click()}>
-                  <Upload size={13} />
-                  {t('importVoice')}
-                </button>
-                <button onClick={() => sfxInput.current?.click()}>
-                  <Upload size={13} />
-                  {t('importSfx')}
-                </button>
-                <button onClick={() => musicInput.current?.click()}>
-                  <Upload size={13} />
-                  {t('importMusic')}
-                </button>
-              </div>
-              {mediaSelect(
-                t('voice'),
-                moment.voiceId,
-                (id) => changeMoment({ voiceId: id }),
-                'audio',
+            {element &&
+              ['panel', 'bubble', 'sfx'].includes(element.kind) &&
+              !element.editorOnly && (
+                <details className="sidebar-menu">
+                  <summary>{t('audioSettings')}</summary>
+                  <p className="sidebar-note">{t('audioSelectHint')}</p>
+                  {element.kind === 'bubble' &&
+                    mediaSelect(
+                      t('voice'),
+                      element.voiceId,
+                      (id) => updateElement({ voiceId: id || undefined }),
+                      'voice',
+                    )}
+                  {element.kind === 'sfx' &&
+                    mediaSelect(
+                      t('sound'),
+                      element.sfxId,
+                      (id) => updateElement({ sfxId: id || undefined }),
+                      'sfx',
+                    )}
+                  {element.kind === 'panel' && (
+                    <>
+                      {mediaSelect(
+                        t('music'),
+                        moment.musicId,
+                        (id) => changeMoment({ musicId: id || undefined, stopMusic: false }),
+                        'music',
+                      )}
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={!!moment.stopMusic}
+                          onChange={(e) => changeMoment({ stopMusic: e.target.checked })}
+                        />
+                        {t('stopMusic')}
+                      </label>
+                    </>
+                  )}
+                </details>
               )}
-              {mediaSelect(t('sound'), moment.sfxId, (id) => changeMoment({ sfxId: id }), 'audio')}
-              {mediaSelect(
-                t('music'),
-                moment.musicId,
-                (id) => changeMoment({ musicId: id, stopMusic: false }),
-                'audio',
-              )}
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={!!moment.stopMusic}
-                  onChange={(e) => changeMoment({ stopMusic: e.target.checked })}
-                />
-                {t('stopMusic')}
-              </label>
-            </details>
             <div className="button-row">
               <button
                 disabled={momentIndex === 0}
@@ -1474,6 +1549,27 @@ export function Editor({
               {t('save')}
             </button>
             {error && <p className="error-text">{error}</p>}
+          </section>
+        </div>
+      )}
+      {mediaDeletion && (
+        <div className="modal-backdrop">
+          <section className="modal" role="dialog" aria-modal="true">
+            <h2>{t('removeMaterial')}</h2>
+            <p>{mediaDeletion.name}</p>
+            <p>{t('removeMaterialHint')}</p>
+            <div className="button-row">
+              <button onClick={() => setMediaDeletion(undefined)}>{t('cancel')}</button>
+              <button
+                className="danger-button"
+                onClick={() => {
+                  commit(removeAsset(project, mediaDeletion.id));
+                  setMediaDeletion(undefined);
+                }}
+              >
+                {t('removeMaterial')}
+              </button>
+            </div>
           </section>
         </div>
       )}
