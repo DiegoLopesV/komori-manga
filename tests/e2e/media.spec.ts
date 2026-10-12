@@ -28,6 +28,6 @@ test('finished-page import maps artwork to frames and remains available after re
   await expect(page.locator('.editor-paper image')).toHaveCount(5);
   await page.getByRole('button', { name: 'Voltar', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: /Sem título/ }).click();
+  await page.locator('.work-card').filter({ hasText: 'Sem título' }).click();
   await expect(page.locator('.editor-paper image')).toHaveCount(5);
 });

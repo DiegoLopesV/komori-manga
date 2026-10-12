@@ -84,6 +84,17 @@ export function Editor({
         if (target) Object.assign(target, values);
       });
   }
+  function removeSelected() {
+    if (!element || busy || preview || settings || templates || share) return;
+    updatePage((p) => {
+      p.elements = p.elements.filter((e) => e.id !== element.id);
+      p.moments.forEach((m) => {
+        m.show = m.show.filter((id) => id !== element.id);
+        m.hide = m.hide.filter((id) => id !== element.id);
+      });
+    });
+    setSelected(undefined);
+  }
   useEffect(() => {
     const token = ++revision.current;
     setStatus(ownerId ? 'saving' : 'local');
@@ -105,7 +116,13 @@ export function Editor({
   }, [project, ownerId]); // parent callback is intentionally stable
   useEffect(() => {
     function key(e: KeyboardEvent) {
-      if ((e.target as HTMLElement).matches('input,textarea,select')) return;
+      if ((e.target as HTMLElement).closest('input,textarea,select,[contenteditable="true"]'))
+        return;
+      if (busy || preview || settings || templates || share) return;
+      if ((e.key === 'Delete' || e.key === 'Backspace') && element) {
+        e.preventDefault();
+        removeSelected();
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -114,7 +131,7 @@ export function Editor({
     }
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
-  }, [undo, redo]);
+  }, [undo, redo, element, project, busy, preview, settings, templates, share]);
   async function importFiles(files: FileList | null) {
     if (!files) return;
     setBusy(true);
@@ -722,20 +739,8 @@ export function Editor({
                 >
                   <Copy size={15} />
                 </button>
-                <button
-                  aria-label={t('delete')}
-                  onClick={() => {
-                    updatePage((p) => {
-                      p.elements = p.elements.filter((e) => e.id !== element.id);
-                      p.moments.forEach((m) => {
-                        m.show = m.show.filter((id) => id !== element.id);
-                        m.hide = m.hide.filter((id) => id !== element.id);
-                      });
-                    });
-                    setSelected(undefined);
-                  }}
-                >
-                  <Trash2 size={15} />
+                <button aria-label={t('delete')} onClick={removeSelected}>
+                  <Trash2 size={15} /> {t('delete')} · Del
                 </button>
               </div>
             </div>

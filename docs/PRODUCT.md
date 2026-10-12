@@ -11,3 +11,5 @@ Author accounts, works with covers/descriptions/support links, chapters/pages. D
 Architecture: Vite/React/TypeScript frontend on Vercel, Supabase Auth/Postgres/Storage, RLS ownership enforcement and private draft media. Published media is made accessible only when included in a published snapshot. 25 MB per file, 200 MB per work initial guardrails. Self-host documentation and CI tests required. These quotas are safeguards, not a claim about provider plan limits.
 
 Milestones: reader engine; page editor; direction timeline; accounts/publication; polish, validation, self-host/review documentation. Use test-first domain and permission tests, plus browser flow checks. Authentication/provider permission blockers are recorded separately from code completion.
+
+Deletion: Delete/Backspace removes the selected page element, cleans its moment references and supports undo. Ignore these shortcuts while typing or in a modal/reader. The library exposes work deletion with explicit confirmation; this removes the draft, public snapshot and uploaded work media. No actual user work is deleted by development tests, which use disposable fixtures only.

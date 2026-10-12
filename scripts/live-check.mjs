@@ -85,8 +85,15 @@ try {
   );
   await page.getByRole('button', { name: 'Voltar', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: /Rascunho alterado/ }).waitFor();
+  await page.locator('.work-card').filter({ hasText: 'Rascunho alterado' }).waitFor();
   console.log('PASS: edits stay private, cloud draft survives reload');
+  await page.getByRole('button', { name: 'Apagar obra Rascunho alterado' }).click();
+  await page.getByRole('button', { name: 'Apagar definitivamente', exact: true }).click();
+  await page.locator('.work-card').waitFor({ state: 'detached' });
+  assert.equal((await anon.from('publications').select('*').eq('work_id', workId)).data.length, 0);
+  assert.equal((await admin.from('works').select('*').eq('id', workId)).data.length, 0);
+  assert.equal((await admin.storage.from('media').list(`${userId}/${workId}`)).data.length, 0);
+  console.log('PASS: deleting work removes private draft, publication and uploaded media');
 } finally {
   await browser?.close();
   // Only remove fixtures created by this test; revoke the test session first.

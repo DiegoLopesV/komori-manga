@@ -1436,3 +1436,28 @@ p {
     transition: none !important;
   }
 }
+
+.work-entry {
+  position: relative;
+  min-width: 0;
+}
+.work-entry > .work-card {
+  width: 100%;
+}
+.work-delete {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  background: #faf9f3;
+  z-index: 2;
+  color: #a44f35;
+  padding: 8px;
+}
+.danger-button {
+  background: #a44f35;
+  color: white;
+  border-color: #a44f35;
+}
+.danger-button:hover {
+  background: #853e28;
+}

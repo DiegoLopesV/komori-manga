@@ -89,6 +89,16 @@ const dictionary = {
   help: ['Clique ou use → para revelar. ← para voltar.', 'Click or use → to reveal. ← to go back.'],
   finished: ['Capítulo concluído', 'Chapter complete'],
   delete: ['Remover', 'Remove'],
+  deleteWork: ['Apagar obra', 'Delete work'],
+  deleteForever: ['Apagar definitivamente', 'Delete permanently'],
+  deleteWorkWarning: [
+    'Esta ação apaga o rascunho, os capítulos publicados e os arquivos da obra. O link compartilhado deixará de funcionar. Não é possível desfazer.',
+    'This deletes the draft, published chapters and work files. The shared link will stop working. This cannot be undone.',
+  ],
+  cleanupWarning: [
+    'A obra foi apagada, mas alguns arquivos não puderam ser removidos do armazenamento.',
+    'The work was deleted, but some files could not be removed from storage.',
+  ],
   duplicate: ['Duplicar', 'Duplicate'],
   undo: ['Desfazer', 'Undo'],
   redo: ['Refazer', 'Redo'],

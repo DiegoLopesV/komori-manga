@@ -25,3 +25,12 @@ export async function localWorks() {
     request.onerror = () => reject(request.error);
   });
 }
+export async function localDelete(id: string) {
+  const database = await db();
+  return new Promise<void>((resolve, reject) => {
+    const tx = database.transaction('drafts', 'readwrite');
+    tx.objectStore('drafts').delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}

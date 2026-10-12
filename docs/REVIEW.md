@@ -8,6 +8,7 @@ Faça a revisão no computador para editar e no celular para ler. Use primeiro �
 - Importar uma página pronta e conferir os recortes em cada quadro. Mover os vértices, ajustar curvatura, redimensionar e reposicionar.
 - Importar quadros separados; verificar proporção, recorte, escala e posição da imagem.
 - Criar balões, textos e onomatopeias; testar tamanhos, cores, duplicação, ordem das camadas e desfazer/refazer.
+- Selecionar um quadro e pressionar Delete/Backspace; conferir remoção e desfazer. Digitar em um balão não deve acionar remoção do elemento.
 - Conferir se a interface atrapalha a arte em páginas densas. Anotar principalmente tarefas difíceis e controles pouco claros.
 
 ## 2. Direção e experiência de leitura
@@ -27,6 +28,7 @@ Faça a revisão no computador para editar e no celular para ler. Use primeiro �
 - Publicar um segundo capítulo; confirmar que o primeiro não recebe alterações pendentes do rascunho.
 - Marcar conteúdo adulto e confirmar que o aviso aparece antes da capa e da leitura.
 - Recarregar editor e biblioteca; conferir persistência. Abrir com outra conta para conferir isolamento.
+- Em uma obra descartável, cancelar a confirmação da lixeira e conferir que ela permanece. Confirmar a exclusão e conferir que rascunho, publicação e arquivos desaparecem, inclusive após recarregar.
 
 ## 4. Revisão técnica antes de ampliar o piloto
 

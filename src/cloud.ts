@@ -12,14 +12,12 @@ export async function saveDraft(project: Project, ownerId: string) {
     if (a.path) a.src = '';
   });
   await writeQueue(project.id, async () => {
-    const { error } = await cloud!
-      .from('works')
-      .upsert({
-        id: project.id,
-        owner_id: ownerId,
-        draft: copy,
-        updated_at: new Date().toISOString(),
-      });
+    const { error } = await cloud!.from('works').upsert({
+      id: project.id,
+      owner_id: ownerId,
+      draft: copy,
+      updated_at: new Date().toISOString(),
+    });
     if (error) throw error;
   });
 }
@@ -117,14 +115,12 @@ export async function publish(
   copy.assets.forEach((a) => {
     if (a.path) a.src = '';
   });
-  const { error } = await cloud
-    .from('publications')
-    .upsert({
-      work_id: project.id,
-      owner_id: ownerId,
-      snapshot: copy,
-      published_at: new Date().toISOString(),
-    });
+  const { error } = await cloud.from('publications').upsert({
+    work_id: project.id,
+    owner_id: ownerId,
+    snapshot: copy,
+    published_at: new Date().toISOString(),
+  });
   if (error) throw error;
   return `${location.origin}/m/${project.id}`;
 }
@@ -137,4 +133,35 @@ export async function loadPublished(id: string): Promise<Project> {
     .single();
   if (error) throw error;
   return resolveAssets(data.snapshot as Project);
+}
+export async function deleteWork(id: string, ownerId: string): Promise<{ cleanupFailed: boolean }> {
+  if (!cloud) throw new Error('Supabase não configurado / Supabase not configured');
+  return writeQueue(id, async () => {
+    const prefix = `${ownerId}/${id}`;
+    const paths: string[] = [];
+    for (let offset = 0; ; offset += 100) {
+      const { data, error } = await cloud!.storage
+        .from('media')
+        .list(prefix, { limit: 100, offset });
+      if (error) throw error;
+      paths.push(...data.filter((file) => file.id).map((file) => `${prefix}/${file.name}`));
+      if (data.length < 100) break;
+    }
+    const { error } = await cloud!
+      .from('works')
+      .delete()
+      .eq('id', id)
+      .eq('owner_id', ownerId)
+      .select('id')
+      .single();
+    if (error) throw error;
+    // Foreign keys remove publication and published-asset rows before media cleanup.
+    for (let i = 0; i < paths.length; i += 100) {
+      const { error: cleanupError } = await cloud!.storage
+        .from('media')
+        .remove(paths.slice(i, i + 100));
+      if (cleanupError) return { cleanupFailed: true };
+    }
+    return { cleanupFailed: false };
+  });
 }

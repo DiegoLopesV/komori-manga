@@ -104,4 +104,12 @@ describe('database ownership and publication', () => {
       ),
     ).rejects.toThrow();
   });
+  it('only the owner can delete a work; deletion also removes its publication and asset grants', async () => {
+    await as('authenticated', stranger, `delete from works where id='${work}'`);
+    expect((await as('anon', '', 'select * from publications')).rows).toHaveLength(1);
+    await as('authenticated', owner, `delete from works where id='${work}'`);
+    expect((await as('anon', '', 'select * from publications')).rows).toHaveLength(0);
+    expect((await as('anon', '', 'select * from published_assets')).rows).toHaveLength(0);
+    expect((await as('anon', '', 'select * from storage.objects')).rows).toHaveLength(0);
+  });
 });

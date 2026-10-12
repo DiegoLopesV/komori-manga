@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowUpRight, Plus, Code2, BookOpen, Layers, Play, X, Heart } from 'lucide-react';
+import { ArrowUpRight, Plus, Code2, BookOpen, Layers, Play, X, Heart, Trash2 } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import { Editor } from './Editor';
 import { Reader } from './Reader';
 import { Canvas } from './Canvas';
-import { cloud, loadPublished, loadWorks } from './cloud';
+import { cloud, loadPublished, loadWorks, deleteWork } from './cloud';
 import { createProject, safeLink, uid, type Project } from './core';
 import { demoProject } from './demo';
-import { localSave, localWorks } from './local';
+import { localSave, localWorks, localDelete } from './local';
 import { tr, type Language } from './i18n';
 export function App() {
   const [language, setLanguage] = useState<Language>(() =>
@@ -25,6 +25,7 @@ export function App() {
     [message, setMessage] = useState(''),
     [busy, setBusy] = useState(false);
   const [readerChapter, setReaderChapter] = useState(0);
+  const [deleting, setDeleting] = useState<Project>();
   const [published, setPublished] = useState<Project>(),
     [reading, setReading] = useState(false),
     [adultAccepted, setAdultAccepted] = useState(false);
@@ -80,6 +81,23 @@ export function App() {
     },
     [session],
   );
+  async function confirmDeletion() {
+    if (!deleting) return;
+    setBusy(true);
+    setError('');
+    try {
+      if (session) {
+        const result = await deleteWork(deleting.id, session.user.id);
+        if (result.cleanupFailed) setError(t('cleanupWarning'));
+      } else await localDelete(deleting.id);
+      setWorks((existing) => existing.filter((work) => work.id !== deleting.id));
+      setDeleting(undefined);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function submitAuth(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -344,27 +362,37 @@ export function App() {
         )}
         <div className="work-grid">
           {works.map((work) => (
-            <button className="work-card" key={work.id} onClick={() => setEditing(work)}>
-              <div className="work-cover">
-                {work.adult ? (
-                  <span className="adult-symbol">18+</span>
-                ) : work.assets.find((a) => a.id === work.coverId)?.src ? (
-                  <img src={work.assets.find((a) => a.id === work.coverId)!.src} alt="" />
-                ) : (
-                  <Canvas page={work.chapters[0].pages[0]} assets={work.assets} reduced />
-                )}
-                <span className="draft-badge">{t('studio')}</span>
-              </div>
-              <div className="work-card-footer">
-                <div>
-                  <h3>{work.title}</h3>
-                  <small>
-                    {work.chapters.length} {t('chapter').toLowerCase()} · {work.language}
-                  </small>
+            <article className="work-entry" key={work.id}>
+              <button className="work-card" key={work.id} onClick={() => setEditing(work)}>
+                <div className="work-cover">
+                  {work.adult ? (
+                    <span className="adult-symbol">18+</span>
+                  ) : work.assets.find((a) => a.id === work.coverId)?.src ? (
+                    <img src={work.assets.find((a) => a.id === work.coverId)!.src} alt="" />
+                  ) : (
+                    <Canvas page={work.chapters[0].pages[0]} assets={work.assets} reduced />
+                  )}
+                  <span className="draft-badge">{t('studio')}</span>
                 </div>
-                <ArrowUpRight size={20} />
-              </div>
-            </button>
+                <div className="work-card-footer">
+                  <div>
+                    <h3>{work.title}</h3>
+                    <small>
+                      {work.chapters.length} {t('chapter').toLowerCase()} · {work.language}
+                    </small>
+                  </div>
+                  <ArrowUpRight size={20} />
+                </div>
+              </button>
+              <button
+                className="work-delete"
+                aria-label={`${t('deleteWork')} ${work.title}`}
+                title={t('deleteWork')}
+                onClick={() => setDeleting(work)}
+              >
+                <Trash2 size={16} />
+              </button>
+            </article>
           ))}
           <button className="new-work-card" onClick={newWork}>
             <Plus size={32} />
@@ -381,6 +409,40 @@ export function App() {
         <a href="https://github.com/DiegoLopesV/komori-manga">GitHub ↗</a>
       </footer>
       {authDialog()}
+      {deleting && (
+        <div className="modal-backdrop">
+          <section
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-work-title"
+          >
+            <header>
+              <h2 id="delete-work-title">
+                {t('deleteWork')} “{deleting.title}”
+              </h2>
+            </header>
+            <p>{t('deleteWorkWarning')}</p>
+            {error && (
+              <p className="error-text" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="button-row">
+              <button disabled={busy} onClick={() => setDeleting(undefined)}>
+                {t('cancel')}
+              </button>
+              <button
+                className="danger-button"
+                disabled={busy}
+                onClick={() => void confirmDeletion()}
+              >
+                {t('deleteForever')}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
   function authDialog() {
