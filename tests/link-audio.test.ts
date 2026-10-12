@@ -9,6 +9,7 @@ import {
   momentAudioIds,
   buildPublication,
   makeTemplate,
+  normalizeProject,
 } from '../src/core';
 it('linking panels merges reveal timing and shares the target music, including descendants', () => {
   const p = createProject().chapters[0].pages[0];
@@ -58,4 +59,31 @@ it('element audio is published, stripped from presets and removed from drafts wi
   expect(cleaned.assets.some((a) => a.id === 'voice')).toBe(false);
   expect(cleaned.chapters[0].pages[0].elements.find((e) => e.id === b.id)?.voiceId).toBeUndefined();
   expect(published.assets).toHaveLength(1);
+});
+
+it('old panel links are synchronized when loading a draft', () => {
+  const p = createProject();
+  const page = p.chapters[0].pages[0];
+  const [a, b] = page.elements;
+  b.parentId = a.id;
+  page.moments[0].musicId = 'group';
+  const migrated = normalizeProject(p).chapters[0].pages[0];
+  expect(visibleIds(migrated.moments, 0, migrated.elements).has(b.id)).toBe(true);
+  expect(migrated.moments).toHaveLength(3);
+  expect(p.chapters[0].pages[0].moments).toHaveLength(4);
+});
+
+it('published snapshots can retain their original timing while draft links migrate', () => {
+  const p = createProject();
+  const page = p.chapters[0].pages[0];
+  page.elements[1].parentId = page.elements[0].id;
+  const published = normalizeProject(p, false);
+  expect(published.chapters[0].pages[0].moments).toEqual(page.moments);
+  expect(
+    visibleIds(
+      published.chapters[0].pages[0].moments,
+      0,
+      published.chapters[0].pages[0].elements,
+    ).has(page.elements[1].id),
+  ).toBe(false);
 });

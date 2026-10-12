@@ -385,7 +385,7 @@ export function removeElement(page: Page, id: string): Page {
   }
   return result;
 }
-export function normalizeProject(project: Project): Project {
+export function normalizeProject(project: Project, syncLinks = true): Project {
   const copy = snapshot(project);
   copy.chapters.forEach((c) =>
     c.pages.forEach((p) => {
@@ -401,6 +401,20 @@ export function normalizeProject(project: Project): Project {
         };
         p.elements.unshift(e);
         p.backgroundElementId = e.id;
+      }
+      const links = (syncLinks ? p.elements : [])
+        .filter(
+          (e) =>
+            e.parentId && p.elements.find((parent) => parent.id === e.parentId)?.kind === 'panel',
+        )
+        .map((e) => ({ id: e.id, parentId: e.parentId! }));
+      for (const link of links) {
+        const child = p.elements.find((e) => e.id === link.id);
+        if (!child) continue;
+        delete child.parentId;
+        const linked = linkElement(p, link.id, link.parentId);
+        p.elements = linked.elements;
+        p.moments = linked.moments;
       }
     }),
   );

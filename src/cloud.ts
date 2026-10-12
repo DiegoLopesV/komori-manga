@@ -29,8 +29,8 @@ export async function saveDraft(project: Project, ownerId: string) {
     if (error) throw error;
   });
 }
-export async function resolveAssets(project: Project): Promise<Project> {
-  const copy = normalizeProject(project);
+export async function resolveAssets(project: Project, syncLinks = true): Promise<Project> {
+  const copy = normalizeProject(project, syncLinks);
   if (!cloud) return copy;
   const paths = copy.assets.flatMap((a) => (a.path ? [a.path] : []));
   if (!paths.length) return copy;
@@ -140,7 +140,7 @@ export async function loadPublished(id: string): Promise<Project> {
     .eq('work_id', id)
     .single();
   if (error) throw error;
-  return resolveAssets(data.snapshot as Project);
+  return resolveAssets(data.snapshot as Project, false);
 }
 export async function deleteWork(id: string, ownerId: string): Promise<{ cleanupFailed: boolean }> {
   if (!cloud) throw new Error('Supabase não configurado / Supabase not configured');
