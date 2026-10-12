@@ -65,6 +65,7 @@ export function Canvas({
         y: Math.round(original.y + position.y - drag.current.y),
       });
   }
+  const selectedElement = page.elements.find((e) => e.id === selected);
   const asset = (id?: string) => assets.find((a) => a.id === id);
   return (
     <svg
@@ -231,67 +232,67 @@ export function Canvas({
                   </foreignObject>
                 )}
               </g>
-              {selected === e.id && onChange && (
-                <>
-                  <rect
-                    width={e.width}
-                    height={e.height}
-                    fill="none"
-                    stroke="#a34e34"
-                    strokeWidth={2}
-                    strokeDasharray="8 5"
-                  />
-                  {e.kind === 'panel' &&
-                    !e.pathD &&
-                    e.points.map((p, i) => (
-                      <circle
-                        key={i}
-                        cx={p.x * e.width}
-                        cy={p.y * e.height}
-                        r={7}
-                        fill="#a34e34"
-                        stroke="white"
-                        strokeWidth={2}
-                        onPointerDown={(event) => {
-                          event.stopPropagation();
-                          drag.current = {
-                            id: e.id,
-                            point: i,
-                            x: 0,
-                            y: 0,
-                            original: structuredClone(e),
-                          };
-                          root.current?.setPointerCapture(event.pointerId);
-                        }}
-                      />
-                    ))}
-                  <rect
-                    data-resize-handle
-                    width={14}
-                    height={14}
-                    x={e.width - 7}
-                    y={e.height - 7}
-                    fill="#a34e34"
-                    stroke="white"
-                    strokeWidth={2}
-                    style={{ cursor: 'nwse-resize' }}
-                    onPointerDown={(event) => {
-                      event.stopPropagation();
-                      drag.current = {
-                        id: e.id,
-                        resize: true,
-                        x: 0,
-                        y: 0,
-                        original: structuredClone(e),
-                      };
-                      root.current?.setPointerCapture(event.pointerId);
-                    }}
-                  />
-                </>
-              )}
             </g>
           );
         })}
+      {selectedElement && onChange && (
+        <g transform={`translate(${selectedElement.x} ${selectedElement.y})`}>
+          <rect
+            width={selectedElement.width}
+            height={selectedElement.height}
+            fill="none"
+            stroke="#a34e34"
+            strokeWidth={2}
+            strokeDasharray="8 5"
+          />
+          {selectedElement.kind === 'panel' &&
+            !selectedElement.pathD &&
+            selectedElement.points.map((p, i) => (
+              <circle
+                key={i}
+                cx={p.x * selectedElement.width}
+                cy={p.y * selectedElement.height}
+                r={7}
+                fill="#a34e34"
+                stroke="white"
+                strokeWidth={2}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  drag.current = {
+                    id: selectedElement.id,
+                    point: i,
+                    x: 0,
+                    y: 0,
+                    original: structuredClone(selectedElement),
+                  };
+                  root.current?.setPointerCapture(event.pointerId);
+                }}
+              />
+            ))}
+          <rect
+            data-resize-handle
+            width={14}
+            height={14}
+            x={selectedElement.width - 7}
+            y={selectedElement.height - 7}
+            fill="#a34e34"
+            stroke="white"
+            strokeWidth={2}
+            style={{ cursor: 'nwse-resize' }}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              drag.current = {
+                id: selectedElement.id,
+                resize: true,
+                x: 0,
+                y: 0,
+                original: structuredClone(selectedElement),
+              };
+              root.current?.setPointerCapture(event.pointerId);
+            }}
+          />
+        </g>
+      )}
     </svg>
   );
 }

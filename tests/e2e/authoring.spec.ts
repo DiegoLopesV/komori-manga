@@ -79,13 +79,15 @@ test('frame audio imports attach to its reveal and linked balloons follow resizi
   await page.locator('input[data-import="sfx"]').setInputFiles('public/demo/chime.wav');
   await page.locator('input[data-import="music"]').setInputFiles('public/demo/ambience.wav');
   await expect(
-    page.locator('.moment-properties').getByRole('combobox',{name:'Falas', exact:true}),
+    page.locator('.moment-properties').getByRole('combobox', { name: 'Falas', exact: true }),
   ).not.toHaveValue('');
   await expect(
-    page.locator('.moment-properties').getByRole('combobox',{name:'Efeitos', exact:true}),
+    page.locator('.moment-properties').getByRole('combobox', { name: 'Efeitos', exact: true }),
   ).not.toHaveValue('');
   await expect(
-    page.locator('.moment-properties').getByRole('combobox',{name:'Música ambiente', exact:true}),
+    page
+      .locator('.moment-properties')
+      .getByRole('combobox', { name: 'Música ambiente', exact: true }),
   ).not.toHaveValue('');
   await page.getByRole('button', { name: 'Balão neste quadro', exact: true }).click();
   const before = await page.locator('.editor-paper [data-kind="bubble"]').getAttribute('transform');
@@ -102,4 +104,18 @@ test('frame audio imports attach to its reveal and linked balloons follow resizi
   for (let i = 0; i < 6; i++)
     await page.getByRole('button', { name: 'Avançar', exact: true }).click();
   await expect(page.locator('.reader-page [data-kind="bubble"]')).toHaveCount(1);
+});
+test('SVG resize handle stays usable above overlapping frames', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Começar uma obra' }).click();
+  await page.locator('input[data-import="page"]').setInputFiles('tests/fixtures/layout.svg');
+  const panel = page.locator('.editor-paper [data-kind="panel"]').first();
+  await panel.click();
+  const before = (await panel.boundingBox())!.width;
+  const handle = (await page.locator('.editor-paper [data-resize-handle]').boundingBox())!;
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + handle.width / 2 + 45, handle.y + handle.height / 2 + 30);
+  await page.mouse.up();
+  expect((await panel.boundingBox())!.width).toBeGreaterThan(before + 20);
 });

@@ -547,11 +547,13 @@ p {
 }
 .page-thumbnails {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 13px;
   margin: 6px 0;
 }
 .page-thumb {
+  min-width: 0;
+  overflow: hidden;
   display: block;
   text-align: left;
   border: 1px solid transparent;
@@ -571,6 +573,8 @@ p {
   margin-top: 7px;
 }
 .page-thumb small {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-family: 'DM Sans';
   font-size: 8px;
   color: var(--muted);
