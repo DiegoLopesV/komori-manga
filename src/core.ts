@@ -757,7 +757,7 @@ export function deleteMoment(page: Page, index: number): Page {
 export function musicVolumeAt(moments: Moment[], index: number): number {
   let volume = 1;
   moments.slice(0, index + 1).forEach((m) => {
-    if (m.musicId || m.stopMusic) volume = audioGain(m.musicVolume);
+    if (m.musicId || m.stopMusic || m.musicVolume !== undefined) volume = audioGain(m.musicVolume);
   });
   return volume;
 }

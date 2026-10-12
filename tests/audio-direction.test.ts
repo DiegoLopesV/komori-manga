@@ -6,6 +6,7 @@ import {
   readerVisibleIds,
   deleteMoment,
   visibleIds,
+  musicVolumeAt,
 } from '../src/core';
 import { startAudioSequence, type AudioLike } from '../src/audioDirection';
 afterEach(() => vi.useRealTimers());
@@ -170,4 +171,13 @@ it('finishing a visual transition early triggers its effect without restarting s
   vi.runAllTimers();
   expect(played).toEqual(['voice', 'fx']);
   session.stop();
+});
+
+it('a panel can adjust inherited ambience volume without restarting the music', () => {
+  const p = createProject().chapters[0].pages[0];
+  p.moments[0].musicId = 'music';
+  p.moments[0].musicVolume = 0.8;
+  p.moments[1].musicVolume = 0.3;
+  expect(musicVolumeAt(p.moments, 1)).toBe(0.3);
+  expect(musicVolumeAt(p.moments, 2)).toBe(0.3);
 });
