@@ -18,4 +18,15 @@ Email signup/confirmation/recovery for the public is not verified and is not ena
 
 Initial automated browser coverage is Chromium, including a mobile viewport; it is not a real iPhone/Safari compatibility claim. GIF and MP4 are accepted but codec behavior must be reviewed on target devices. Static alternative is optional in editing; creators should supply one for animations. Free-provider quotas and user-content moderation require operational work before broad launch.
 
-See deployment/check results in the repository and the final delivery report for final counts and URLs. Tests reduce regression risk; they do not guarantee absence of bugs.
+## Final pilot checks
+
+- 22 unit/component/Postgres policy tests passed; TypeScript and production build passed.
+- 5 Chromium browser flow tests passed locally and again against the published site.
+- The live author/storage/publication/anonymous-reader test passed against production. Its subsequent draft-isolation and cloud-reload checks also passed.
+- Production: https://komori-manga.vercel.app (HTTP 200; accessible without Vercel login at the production alias).
+- Deployment ID: `dpl_Awdzj8MsDwerkpLK9a5ujBRg1axH`; application source commit: `883815c`.
+- All three SQL migrations applied and recorded; local/remote histories match.
+- Final Supabase security and performance advisors returned no issues.
+- GitHub workflow is configured for pushes/PRs. Automatic Vercel Git connection was rejected by provider access; deploys currently use the authenticated Vercel CLI, not a promised automatic push deployment.
+
+Tests reduce regression risk; they do not guarantee absence of bugs. Email confirmation/recovery delivery remains deferred by the owner's pilot decision.
